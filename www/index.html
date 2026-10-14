@@ -166,6 +166,37 @@ th{font-size:13px;color:var(--muted);font-weight:600}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0;-webkit-user-select:none;user-select:none}
 [hidden]{display:none!important}
+
+/* ---- 풀이 화면: 한 화면에 모두 보이게 ---- */
+#play:not([hidden]){height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);
+  height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);gap:8px}
+#play .ptop .link{padding:4px 0}
+.pbar{height:6px;flex:none}
+.gbox{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;flex:none}
+.gbox .gtext{font-size:20px}
+.gbox .peek{padding:6px 10px;font-size:14px}
+.qrow{display:flex;gap:8px;flex:none}
+.qrow .speak{flex:none;width:76px;padding:4px;font-size:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.1}
+.qrow .speak span{font-size:14px;font-weight:700}
+.qrow .answer{flex:1;min-width:0;min-height:68px;padding:8px 14px;align-items:center}
+.qrow .num{font-size:clamp(28px,9vw,40px)}
+.qrow .won{font-size:20px}
+.mrow{display:flex;align-items:center;gap:8px;min-height:40px;flex:none}
+.mrow .msg{flex:1;min-width:0;text-align:left;font-size:17px;min-height:0}
+.mini{flex:none;border:2px solid var(--accent);border-radius:12px;background:var(--surface);font-size:16px;font-weight:700;padding:7px 12px}
+.mini.primary{background:var(--accent);color:var(--accent-ink)}
+#play .rev{flex:none;padding:8px 10px;gap:6px;border-width:2px}
+.revtop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;justify-content:center}
+#play .rev .big{font-size:26px}
+#play .rev .ko{font-size:15px}
+#play .cols{gap:4px}
+#play .col{min-width:32px;padding:3px 2px;gap:0}
+#play .col .d{font-size:20px}
+#play .col .p{font-size:11px}
+#play .pad{flex:1;min-height:0;grid-template-rows:repeat(5,1fr);gap:8px}
+#play .k{padding:0;min-height:0;font-size:clamp(22px,7vw,30px)}
+#play .k.sm{font-size:17px}
+#play .go{padding:0;font-size:20px}
 </style>
 </head>
 <body>
@@ -211,25 +242,26 @@ body{margin:0;-webkit-user-select:none;user-select:none}
   </div>
   <div class="pbar"><i id="pbar"></i></div>
 
-  <div class="listen">
-    <button class="speak" id="speak" type="button">🔊 다시 듣기</button>
-    <div id="gbox" hidden style="display:flex;flex-direction:column;gap:8px;align-items:center">
-      <div class="ghint">보호자가 금액을 읽어 주세요</div>
-      <div class="gtext" id="gtext" hidden></div>
-      <button class="peek" id="peek" type="button">보호자용 금액 보기</button>
-    </div>
+  <div class="gbox" id="gbox" hidden>
+    <span class="ghint">보호자가 읽어 주세요</span>
+    <span class="gtext" id="gtext" hidden></span>
+    <button class="peek" id="peek" type="button">금액 보기</button>
   </div>
 
-  <div class="answer" id="answer"><span class="num empty" id="num">0</span><span class="won">원</span></div>
-  <div class="msg" id="msg" aria-live="polite"></div>
+  <div class="qrow">
+    <button class="speak" id="speak" type="button" aria-label="다시 듣기">🔊<span>듣기</span></button>
+    <div class="answer" id="answer"><span class="num empty" id="num">0</span><span class="won">원</span></div>
+  </div>
+
+  <div class="mrow">
+    <div class="msg" id="msg" aria-live="polite"></div>
+    <button class="mini" type="button" id="showAns" hidden>정답 보기</button>
+    <button class="mini primary" type="button" id="skip" hidden>다음 문제 →</button>
+  </div>
 
   <div class="rev" id="rev" hidden></div>
 
   <div class="pad" id="pad"></div>
-  <div class="acts">
-    <button class="btn2" type="button" id="showAns" hidden>정답 보기</button>
-    <button class="btn2" type="button" id="skip" hidden>다음 문제 →</button>
-  </div>
 </section>
 
 <section id="placed" hidden></section>
@@ -538,9 +570,9 @@ function renderPlay(){
   const rv=$("rev");rv.hidden=!(c&&c.rv);
   if(c&&c.rv){
     const s=String(c.t);
-    rv.innerHTML=`<div class="sub">정답</div><div class="big">${fmt(c.t)}원</div><div class="ko">${toKo(c.t)} 원</div>
-      <div class="cols">${s.split("").map((d,i)=>`<div class="col${d==="0"?" z":""}"><span class="d">${d}</span><span class="p">${PLACE[s.length-1-i]}</span></div>`).join("")}</div>
-      <div class="sub">말에 안 나온 자리는 <b style="color:var(--gold)">0</b>으로 채워요. 보고 따라 써 보세요.</div>`;
+    const hasZero=/0/.test(s.replace(/0+$/,""));
+    rv.innerHTML=`<div class="revtop"><span class="sub">정답</span><b class="big">${fmt(c.t)}원</b><span class="ko">${toKo(c.t)} 원</span></div>
+      <div class="cols">${s.split("").map((d,i)=>`<div class="col${d==="0"?" z":""}"><span class="d">${d}</span><span class="p">${PLACE[s.length-1-i]}</span></div>`).join("")}</div>`;
   }
 }
 function buildPad(){
