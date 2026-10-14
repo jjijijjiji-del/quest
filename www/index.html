@@ -218,7 +218,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
     <summary>설정 (보호자용)</summary>
     <div class="opts">
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
-      <div class="row" id="remindRow"><span class="lab">매일 알림 (오늘 문제를 다 풀면 그날은 안 울려요)</span></div>
+      <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
       <div class="row" id="dailyRow"><span class="lab">하루 문제 수</span></div>
       <div class="row" id="rateRow"><span class="lab">읽는 속도</span></div>
       <div class="row" id="commaRow"><span class="lab">쉼표(,)</span></div>
@@ -386,9 +386,10 @@ function gen(lv,prev){
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 function fresh(){return{v:2,updatedAt:0,level:null,firstLevel:null,placement:null,cur:null,today:null,days:{},
-  settings:{mode:"app",rate:.75,comma:true,sfx:true,daily:20,remind:14,askedNotify:false}};}
+  settings:{mode:"app",rate:.75,comma:true,sfx:true,daily:20,remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
 let state=fresh();
 try{const r=JSON.parse(localStorage.getItem(KEY)||"null");if(r&&r.v===2)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});}catch(e){}
+(function(){const st=state.settings;if(st.remind!==undefined){if(st.remind<0)st.remindMode="off";else{st.remindMode="manual";st.reminds=[st.remind];}delete st.remind;}})();
 function save(){
   state.updatedAt=Date.now();
   try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
@@ -403,24 +404,43 @@ let ttsOk=null; // 한국어 음성 엔진 유무
 if(TTS){TTS.isLanguageSupported({lang:"ko-KR"}).then(r=>{ttsOk=!!r.supported;if(screen==="home")renderSettings();}).catch(()=>{ttsOk=true;});}
 
 // 매일 알림: 앞으로 30일치를 하루 하나씩 예약하고, 오늘 퀘스트를 끝내면 오늘 것은 빼 둠
-const NBASE=7000,NDAYS=30;
+const NBASE=7000,NDAYS=30,MAXT=4;
+const hm=h=>{const H=Math.floor(h),M=Math.round((h-H)*60);return (H<12?"오전 ":"오후 ")+((H%12)||12)+":"+String(M).padStart(2,"0");};
+// 평소 푸는 시간: 최근 문제를 처음 푼 시각들의 가운데 값 (30분 단위)
+function habitHour(){
+  const h=(state.habit||[]).slice(-7).sort((a,b)=>a-b);
+  if(h.length<2)return 14;
+  const m=h[Math.floor(h.length/2)];return Math.min(20,Math.max(8,Math.round(m*2)/2));
+}
+function remindTimes(){
+  const st=state.settings;
+  if(st.remindMode==="off")return [];
+  if(st.remindMode==="manual")return [...(st.reminds||[])].sort((a,b)=>a-b).slice(0,MAXT);
+  const h=habitHour();return h<=18?[h,h+3]:[h,21].filter((x,i,a)=>i===0||x>a[0]);
+}
+const MSGS=["금액 받아쓰기, 오늘도 해 볼까요? 🔊","오늘의 문제를 풀 시간이에요 ✏️","10분이면 충분해요. 오늘 문제 풀어요 💪","어제보다 한 문제 더! 오늘의 퀘스트가 기다려요 ⭐"];
 async function scheduleReminders(){
   if(!LN)return;
   try{
     const pend=await LN.getPending();
-    const mine=(pend.notifications||[]).filter(n=>n.id>=NBASE&&n.id<NBASE+400).map(n=>({id:n.id}));
+    const mine=(pend.notifications||[]).filter(n=>n.id>=NBASE&&n.id<NBASE+1000).map(n=>({id:n.id}));
     if(mine.length)await LN.cancel({notifications:mine});
-    const hr=state.settings.remind;
-    if(hr==null||hr<0)return;
-    const perm=await LN.checkPermissions();
-    if(perm.display!=="granted")return;
-    const now=new Date(),list=[];
+    const times=remindTimes();if(!times.length)return;
+    const perm=await LN.checkPermissions();if(perm.display!=="granted")return;
+    const now=new Date(),list=[],t=state.today,isToday=t&&t.date===dkey();
+    const doneToday=isToday&&t.count>=DAILY,left=isToday?DAILY-t.count:DAILY,stk=streak();
     for(let d=0;d<NDAYS;d++){
-      const at=new Date(now.getFullYear(),now.getMonth(),now.getDate()+d,Math.floor(hr),Math.round((hr%1)*60),0);
-      if(at<=now)continue;
-      if(d===0&&state.today&&state.today.date===dkey()&&state.today.count>=DAILY)continue;
-      list.push({id:NBASE+d,title:"듣고 금액 쓰기",body:"오늘의 문제를 풀 시간이에요 ✏️",
-        schedule:{at,allowWhileIdle:true},smallIcon:"ic_stat_notify"});
+      if(d===0&&doneToday)continue;
+      times.forEach((h,j)=>{
+        const at=new Date(now.getFullYear(),now.getMonth(),now.getDate()+d,Math.floor(h),Math.round((h%1)*60),0);
+        if(at<=now)return;
+        let body;
+        if(j>0)body="아직 오늘 문제를 안 풀었어요. 지금 해 볼까요? ⏰";
+        else if(d===0&&isToday&&t.count>0)body=`오늘 ${left}문제 남았어요. 조금만 더 해요! ✏️`;
+        else if(d<=1&&stk>0)body=`🔥 ${stk}일 연속 중이에요! 오늘도 이어 가요`;
+        else body=MSGS[(d+now.getDate())%MSGS.length];
+        list.push({id:NBASE+d*10+j,title:"듣고 금액 쓰기",body,schedule:{at,allowWhileIdle:true},smallIcon:"ic_stat_notify"});
+      });
     }
     if(list.length)await LN.schedule({notifications:list});
   }catch(e){}
@@ -436,11 +456,12 @@ let koVoice=null;
 function pickVoice(){if(TTS||!canTTS)return;koVoice=speechSynthesis.getVoices().find(v=>/ko/i.test(v.lang))||null;}
 if(!TTS&&canTTS){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
 const guardian=()=>state.settings.mode==="guardian"||!canTTS;
+const curRate=()=>Math.max(.4,state.settings.rate*((state.cur&&state.cur.rp>=2)?.7:1));
 function speak(){
   if(guardian()||!state.cur)return;
-  if(TTS){const text=toKo(state.cur.t)+" 원";TTS.stop().catch(()=>{}).then(()=>TTS.speak({text,lang:"ko-KR",rate:state.settings.rate,pitch:1,volume:1,category:"playback"})).catch(()=>{});return;}
+  if(TTS){const text=toKo(state.cur.t)+" 원";TTS.stop().catch(()=>{}).then(()=>TTS.speak({text,lang:"ko-KR",rate:curRate(),pitch:1,volume:1,category:"playback"})).catch(()=>{});return;}
   try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(toKo(state.cur.t)+" 원");
-    u.lang="ko-KR";u.rate=state.settings.rate;if(koVoice)u.voice=koVoice;speechSynthesis.speak(u);}catch(e){}
+    u.lang="ko-KR";u.rate=curRate();if(koVoice)u.voice=koVoice;speechSynthesis.speak(u);}catch(e){}
 }
 let ac=null;
 function chime(){
@@ -519,10 +540,31 @@ function chips(rowId,items,key){
     b.textContent=label;b.setAttribute("aria-pressed",state.settings[key]===val);
     b.onclick=async()=>{state.settings[key]=val;save();if(key==="remind"&&val>=0)await askNotify();if(key==="remind"||key==="daily")scheduleReminders();if(key==="daily")renderHome();else renderSettings();};row.appendChild(b);});
 }
+function renderRemind(){
+  const st=state.settings,box=$("remindBox");
+  const modes=[["off","끄기"],["auto","자동 (평소 푸는 시간에)"],["manual","시간 직접 정하기"]];
+  let h=`<div class="row">${modes.map(([v,l])=>`<button type="button" class="chip" data-mode="${v}" aria-pressed="${st.remindMode===v}">${l}</button>`).join("")}</div>`;
+  if(st.remindMode==="auto"){
+    const ts=remindTimes(),n=(state.habit||[]).length;
+    h+=`<div class="note">${n<2?"아직 푼 기록이 적어서 ":"평소 푸는 시간에 맞춰 "}<b>${hm(ts[0])}</b>에 알려 주고${ts[1]?`, 그때까지 안 풀면 <b>${hm(ts[1])}</b>에 한 번 더 알려 줘요`:""}. 푸는 시간이 바뀌면 알림 시간도 따라 바뀌어요.</div>`;
+  }else if(st.remindMode==="manual"){
+    const ts=[...(st.reminds||[])].sort((a,b)=>a-b);
+    h+=`<div class="row">${ts.length?ts.map(x=>`<button type="button" class="chip" aria-pressed="true" data-del="${x}" aria-label="${hm(x)} 알림 지우기">${hm(x)} ✕</button>`).join(""):`<span class="note">정한 시간이 없어요</span>`}</div>`;
+    if(ts.length<MAXT)h+=`<div class="row"><input type="time" id="tIn" value="19:00" style="font:inherit;font-size:17px;padding:6px 10px;border:2px solid var(--line);border-radius:10px;background:var(--key);color:var(--ink)"><button type="button" class="chip" id="tAdd">+ 알림 추가</button></div>`;
+    h+=`<div class="note">최대 ${MAXT}개까지 정할 수 있어요. 시간을 누르면 지워져요.</div>`;
+  }
+  box.innerHTML=h;
+  const apply=async()=>{save();if(st.remindMode!=="off")await askNotify();scheduleReminders();renderRemind();};
+  box.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{st.remindMode=b.dataset.mode;apply();});
+  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{st.reminds=(st.reminds||[]).filter(x=>x!==+b.dataset.del);apply();});
+  const add=$("tAdd");
+  if(add)add.onclick=()=>{const v=$("tIn").value;if(!v)return;const [H,M]=v.split(":").map(Number);const x=H+M/60;
+    st.reminds=st.reminds||[];if(!st.reminds.includes(x))st.reminds.push(x);apply();};
+}
 let wipeArmed=false;
 function renderSettings(){
   chips("modeRow",canTTS?[["app","앱이 읽기"],["guardian","보호자가 읽기"]]:[["guardian","보호자가 읽기"]],"mode");
-  if(LN)chips("remindRow",[[-1,"끄기"],[9,"오전 9시"],[11,"오전 11시"],[14,"오후 2시"],[17,"오후 5시"],[19.5,"오후 7시 30분"]],"remind");else $("remindRow").hidden=true;
+  if(LN)renderRemind();else $("remindRow").hidden=true;
   chips("dailyRow",[[10,"10개"],[15,"15개"],[20,"20개"],[30,"30개"]],"daily");
   chips("rateRow",[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
   chips("commaRow",[[true,"자동으로 찍기"],[false,"안 찍기"]],"comma");
@@ -561,6 +603,7 @@ function renderPlay(){
   else{const n=t.count;$("pinfo").innerHTML=n<DAILY?`<b>${n+1}</b> / ${DAILY} · 레벨 ${state.level}`:`더 풀기 <b>${n+1-DAILY}</b> · 레벨 ${state.level}`;
     $("pbar").style.width=Math.min(n/DAILY,1)*100+"%";}
   const g=guardian();
+  $("speak").querySelector("span").textContent=c&&c.rp>=1?"천천히":"듣기";
   $("speak").hidden=g;$("gbox").hidden=!g;
   if(c)$("gtext").textContent=toKo(c.t)+" 원";
   const nm=$("num");nm.textContent=input?fmt(input):"0";nm.classList.toggle("empty",!input);
@@ -616,6 +659,7 @@ function record(first,rv){
   if(P){P.hist.push({lv:c.lv,ok:first});P.lv=Math.max(1,Math.min(MAXLV,c.lv+(first?1:-1)));}
   else{
     const t=state.today;t.count++;if(first)t.first++;if(rv)t.rv++;
+    if(t.count===1){const n=new Date();state.habit=(state.habit||[]).concat(+(n.getHours()+n.getMinutes()/60).toFixed(2)).slice(-14);}
     if(first){t.up++;t.down=0;if(t.up>=3){t.up=0;if(state.level<MAXLV)state.level++;}}
     else{t.down++;t.up=0;if(t.down>=2){t.down=0;if(state.level>1)state.level--;}}
     state.days[t.date]={n:t.count,ok:t.first,rv:t.rv,lv:state.level,lv0:t.startLv,goal:DAILY};
@@ -631,7 +675,7 @@ function advance(){
 }
 $("showAns").onclick=()=>{if(!state.cur)return;state.cur.rv=true;input="";$("msg").textContent="";save();renderPlay();};
 $("skip").onclick=()=>{if(busy||!state.cur)return;record(false,true);advance();};
-$("speak").onclick=speak;
+$("speak").onclick=()=>{if(state.cur){state.cur.rp=(state.cur.rp||0)+1;save();renderPlay();}speak();};
 $("peek").onclick=()=>{const g=$("gtext");g.hidden=false;clearTimeout(g._t);g._t=setTimeout(()=>g.hidden=true,4000);};
 $("back").onclick=()=>{try{TTS?TTS.stop():speechSynthesis.cancel();}catch(e){}show("home");};
 $("back2").onclick=()=>show("home");
