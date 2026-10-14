@@ -28,7 +28,9 @@ jobs:
         run: npm ci
 
       - name: 웹 코드를 안드로이드 프로젝트에 복사
-        run: npx cap sync android
+        run: |
+          cp node_modules/@capacitor/core/dist/capacitor.js www/capacitor.js
+          npx cap sync android
 
       - name: APK 만들기
         working-directory: android
