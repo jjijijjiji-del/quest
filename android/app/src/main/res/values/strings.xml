@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">듣고 금액 쓰기</string>
+    <string name="title_activity_main">듣고 금액 쓰기</string>
+    <string name="package_name">com.cury.listenmoney</string>
+    <string name="custom_url_scheme">com.cury.listenmoney</string>
+</resources>

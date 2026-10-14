@@ -1,0 +1,14 @@
+{
+  "appId": "com.cury.listenmoney",
+  "appName": "듣고 금액 쓰기",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#1F7A68"
+    }
+  }
+}
