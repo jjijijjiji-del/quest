@@ -209,6 +209,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
 .rgrid button{border:2px solid var(--line);background:var(--key);border-radius:10px;padding:8px 2px;font-size:16px;font-weight:600}
 .rgrid button.done{border-color:var(--good);background:var(--good-bg);color:var(--good)}
+.rgrid button.old{border-color:var(--gold);color:var(--gold)}
 .rgrid button.cur{outline:3px solid var(--accent);outline-offset:1px}
 </style>
 </head>
@@ -296,7 +297,8 @@ body{margin:0;-webkit-user-select:none;user-select:none}
   </div>
   <div class="card">
     <div class="qhead"><h2>전체 목록</h2><button class="mini" type="button" id="recTest">금액으로 들어 보기</button></div>
-    <div class="note">눌러서 다시 녹음할 수 있어요. 초록색은 녹음 완료.</div>
+    <div class="note">눌러서 다시 녹음할 수 있어요. 초록색은 녹음 완료, 노란색은 예전 방식으로 녹음돼서 다시 녹음하면 좋아요.</div>
+    <button class="chip warn" type="button" id="recWipe" style="align-self:flex-start">녹음 모두 지우기</button>
     <div class="rgrid" id="recGrid"></div>
   </div>
 </section>
@@ -552,26 +554,30 @@ function playClips(list,slow){
 const IDB=(()=>{let dbp=null;const open=()=>dbp=dbp||new Promise((res,rej)=>{const r=indexedDB.open("voice",1);
   r.onupgradeneeded=()=>r.result.createObjectStore("clips");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
   const tx=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction("clips",mode),st=t.objectStore("clips"),q=fn(st);t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error);}));
-  return{put:(k,v)=>tx("readwrite",st=>st.put(v,k)),all:()=>open().then(db=>new Promise(res=>{const out=[];const c=db.transaction("clips").objectStore("clips").openCursor();
+  return{put:(k,v)=>tx("readwrite",st=>st.put(v,k)),clear:()=>tx("readwrite",st=>st.clear()),all:()=>open().then(db=>new Promise(res=>{const out=[];const c=db.transaction("clips").objectStore("clips").openCursor();
     c.onsuccess=()=>{const cur=c.result;if(cur){out.push([cur.key,cur.value]);cur.continue();}else res(out);};c.onerror=()=>res(out);}))};})();
 IDB.all().then(rows=>{rows.forEach(([k,v])=>clipBuf.set(k,v));if(screen==="home")renderSettings();}).catch(()=>{});
 
-// 녹음 → 앞뒤 무음 잘라내고 24kHz로 줄여 저장
-function trimClip(buf){
-  const src=buf.getChannelData(0),sr=buf.sampleRate,f=Math.round(sr*.01),n=Math.floor(src.length/f),rms=[];
-  for(let i=0;i<n;i++){let a=0;for(let j=i*f;j<(i+1)*f;j++)a+=src[j]*src[j];rms.push(Math.sqrt(a/f));}
-  const peak=Math.max(...rms,0),th=Math.max(.01,peak*.08);
-  let a=rms.findIndex(x=>x>th),b=n-1;while(b>0&&rms[b]<=th)b--;
-  if(a<0)return null;
-  a=Math.max(0,a-4);b=Math.min(n-1,b+8);
-  let seg=src.slice(a*f,(b+1)*f);
-  const step=sr>=44000?2:1,outSr=sr/step,out=new Float32Array(Math.floor(seg.length/step));
-  for(let i=0;i<out.length;i++){let v=0;for(let k=0;k<step;k++)v+=seg[i*step+k];out[i]=v/step;}
-  const g=.9/Math.max(peak,.05),fade=Math.round(outSr*.012);
-  for(let i=0;i<out.length;i++){let w=1;if(i<fade)w=i/fade;else if(i>out.length-fade)w=(out.length-i)/fade;out[i]*=Math.min(g,6)*w;}
-  return{sr:outSr,data:out};
+// 녹음 → 저음 웅웅거림 제거, 앞뒤 무음 잘라내기, 말소리 평균 크기로 맞추기 (원래 샘플레이트 유지, 압축 없음)
+function trimClip(raw,sr){
+  const x=new Float32Array(raw.length),rc=1/(2*Math.PI*80),dt=1/sr,al=rc/(rc+dt);
+  let py=0,px=0;for(let i=0;i<raw.length;i++){py=al*(py+raw[i]-px);px=raw[i];x[i]=py;} // 80Hz 아래 제거
+  const f=Math.round(sr*.01),n=Math.floor(x.length/f),rms=[];
+  for(let i=0;i<n;i++){let a=0;for(let j=i*f;j<(i+1)*f;j++)a+=x[j]*x[j];rms.push(Math.sqrt(a/f));}
+  if(!n)return null;
+  const sorted=[...rms].sort((a,b)=>a-b),floor=sorted[Math.floor(n*.2)],peakR=sorted[n-1];
+  const th=Math.max(floor*3,peakR*.06,.002);
+  let a=rms.findIndex(v=>v>th),b=n-1;while(b>0&&rms[b]<=th)b--;
+  if(a<0||peakR<.004)return null;
+  a=Math.max(0,a-5);b=Math.min(n-1,b+12);
+  const out=x.slice(a*f,(b+1)*f);
+  let vs=0,vc=0,pk=0;for(let i=a;i<=b;i++)if(rms[i]>th){vs+=rms[i]*rms[i];vc++;}
+  for(let i=0;i<out.length;i++)pk=Math.max(pk,Math.abs(out[i]));
+  const voiced=Math.sqrt(vs/Math.max(vc,1)),g=Math.min(.12/voiced,.95/pk,25),fade=Math.round(sr*.015);
+  for(let i=0;i<out.length;i++){let w=1;if(i<fade)w=i/fade;else if(i>out.length-fade)w=(out.length-i)/fade;out[i]*=g*w;}
+  return{sr,data:out,v:2};
 }
-let recIdx=0,mediaRec=null,recStream=null,recTimer=null;
+let recIdx=0,recTimer=null;
 function openRec(i){
   recIdx=i??CLIPS.findIndex(c=>!clipBuf.has(c));if(recIdx<0)recIdx=0;show("rec");renderRec();
 }
@@ -582,38 +588,54 @@ function renderRec(){
   $("recPlay").disabled=!clipBuf.has(w);
   $("recNext").textContent=recIdx<CLIPS.length-1?"다음 →":"처음 화면으로";
   $("recTest").hidden=!recReady();
-  $("recGrid").innerHTML=CLIPS.map((c,i)=>`<button type="button" data-i="${i}" class="${clipBuf.has(c)?"done":""}${i===recIdx?" cur":""}">${c}</button>`).join("");
+  $("recGrid").innerHTML=CLIPS.map((c,i)=>`<button type="button" data-i="${i}" class="${clipBuf.has(c)?(clipBuf.get(c).v===2?"done":"old"):""}${i===recIdx?" cur":""}">${c}</button>`).join("");
   $("recGrid").querySelectorAll("button").forEach(b=>b.onclick=()=>{stopRec(true);recIdx=+b.dataset.i;renderRec();});
 }
-let recStarting=false;
+let recStarting=false,cap=null;
 async function startRec(){
-  if(recStarting)return;recStarting=true;
+  if(recStarting||cap)return;recStarting=true;
+  let stream;
   try{
-    getAC();
-    recStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-  }catch(e){$("recState").textContent="마이크를 쓸 수 없어요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 허용해 주세요.";recStarting=false;return;}
+    const ctx=getAC();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
+    const src=ctx.createMediaStreamSource(stream),proc=ctx.createScriptProcessor(4096,1,1),bufs=[];
+    proc.onaudioprocess=e=>bufs.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    src.connect(proc);proc.connect(ctx.destination);
+    cap={stream,src,proc,bufs,sr:ctx.sampleRate};
+  }catch(e){
+    if(stream)stream.getTracks().forEach(t=>t.stop());
+    $("recState").textContent="마이크를 쓸 수 없어요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 허용해 주세요.";recStarting=false;return;
+  }
   recStarting=false;
-  const chunks=[];mediaRec=new MediaRecorder(recStream);
-  mediaRec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
-  mediaRec.onstop=async()=>{
-    recStream.getTracks().forEach(t=>t.stop());$("recBtn").classList.remove("on");
-    if(mediaRec._cancel){mediaRec=null;return;}mediaRec=null;
-    try{
-      const ab=await new Blob(chunks).arrayBuffer(),buf=await getAC().decodeAudioData(ab),clip=trimClip(buf);
-      if(!clip){$("recState").textContent="소리가 너무 작아요. 조금 더 크게 다시 녹음해 주세요.";return;}
-      const w=CLIPS[recIdx];clipBuf.set(w,clip);await IDB.put(w,clip);
-      playClips([w]);$("recState").textContent="저장했어요. 괜찮으면 다음으로, 아니면 다시 녹음하세요.";renderRec();
-      if(recReady()&&state.settings.mode!=="rec"){state.settings.mode="rec";save();$("recState").textContent=`${CLIPS.length}개 모두 녹음했어요! 이제 이 목소리로 문제를 읽어 줘요.`;}
-    }catch(e){$("recState").textContent="녹음을 저장하지 못했어요. 다시 해 주세요.";}
-  };
-  mediaRec.start();$("recBtn").classList.add("on");$("recState").textContent="녹음 중… 말한 뒤 버튼을 다시 누르세요";
+  $("recBtn").classList.add("on");$("recState").textContent="녹음 중… 말한 뒤 버튼을 다시 누르세요";
   clearTimeout(recTimer);recTimer=setTimeout(()=>stopRec(),3500);
 }
-function stopRec(cancel){clearTimeout(recTimer);if(mediaRec&&mediaRec.state==="recording"){mediaRec._cancel=!!cancel;mediaRec.stop();}}
+async function stopRec(cancel){
+  clearTimeout(recTimer);if(!cap)return;
+  const c=cap;cap=null;
+  try{c.proc.disconnect();c.src.disconnect();}catch(e){}
+  c.stream.getTracks().forEach(t=>t.stop());$("recBtn").classList.remove("on");
+  if(cancel)return;
+  const len=c.bufs.reduce((a,b)=>a+b.length,0),raw=new Float32Array(len);let o=0;c.bufs.forEach(b=>{raw.set(b,o);o+=b.length;});
+  const clip=trimClip(raw,c.sr);
+  if(!clip){$("recState").textContent="소리가 너무 작아요. 폰을 조금 더 가까이 대고 다시 녹음해 주세요.";return;}
+  try{
+    const w=CLIPS[recIdx];clipBuf.set(w,clip);await IDB.put(w,clip);
+    playClips([w]);$("recState").textContent="저장했어요. 괜찮으면 다음으로, 아니면 다시 녹음하세요.";renderRec();
+    if(recReady()&&state.settings.mode!=="rec"){state.settings.mode="rec";save();$("recState").textContent=`${CLIPS.length}개 모두 녹음했어요! 이제 이 목소리로 문제를 읽어 줘요.`;}
+  }catch(e){$("recState").textContent="녹음을 저장하지 못했어요. 다시 해 주세요.";}
+}
 function bindRec(){
-$("recBtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording")stopRec();else startRec();};
+$("recBtn").onclick=()=>{if(cap)stopRec();else startRec();};
 $("recPlay").onclick=()=>playClips([CLIPS[recIdx]]);
 $("recNext").onclick=()=>{stopRec(true);if(recIdx<CLIPS.length-1){recIdx++;$("recState").textContent="빨간 버튼을 누르고 말한 뒤, 다시 누르세요";renderRec();}else show("home");};
+let recWipeArmed=false;
+$("recWipe").onclick=async()=>{
+  if(!recWipeArmed){recWipeArmed=true;$("recWipe").textContent="정말 지울까요? 한 번 더 누르세요";setTimeout(()=>{recWipeArmed=false;$("recWipe").textContent="녹음 모두 지우기";},4000);return;}
+  recWipeArmed=false;$("recWipe").textContent="녹음 모두 지우기";
+  try{await IDB.clear();}catch(e){}clipBuf.clear();if(state.settings.mode==="rec"){state.settings.mode="app";save();}
+  recIdx=0;$("recState").textContent="모두 지웠어요. 처음부터 다시 녹음해 주세요.";renderRec();
+};
 $("recBack").onclick=()=>{stopRec(true);show("home");};
 $("recTest").onclick=()=>{const n=[9810,3050,12000,4000500,128000][Math.floor(Math.random()*5)];$("recState").textContent=`${Number(n).toLocaleString("ko-KR")}원`;playClips(clipsFor(n));};
 }
