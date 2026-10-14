@@ -197,6 +197,19 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 #play .k{padding:0;min-height:0;font-size:clamp(22px,7vw,30px)}
 #play .k.sm{font-size:17px}
 #play .go{padding:0;font-size:20px}
+
+/* ---- 목소리 녹음 ---- */
+.rcard{gap:14px}
+.rword{font-size:64px;font-weight:800;line-height:1.1}
+.rbtn{width:96px;height:96px;border-radius:50%;border:4px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center}
+.rbtn .rdot{width:44px;height:44px;border-radius:50%;background:var(--bad);transition:all .15s}
+.rbtn.on{border-color:var(--bad)}
+.rbtn.on .rdot{width:34px;height:34px;border-radius:8px}
+@media (prefers-reduced-motion:no-preference){.rbtn.on{animation:pulse 1s infinite}@keyframes pulse{50%{transform:scale(1.06)}}}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.rgrid button{border:2px solid var(--line);background:var(--key);border-radius:10px;padding:8px 2px;font-size:16px;font-weight:600}
+.rgrid button.done{border-color:var(--good);background:var(--good-bg);color:var(--good)}
+.rgrid button.cur{outline:3px solid var(--accent);outline-offset:1px}
 </style>
 </head>
 <body>
@@ -264,6 +277,28 @@ body{margin:0;-webkit-user-select:none;user-select:none}
   <div class="rev" id="rev" hidden></div>
 
   <div class="pad" id="pad"></div>
+</section>
+
+<section id="rec" hidden>
+  <div class="ptop">
+    <button class="link" type="button" id="recBack">← 처음으로</button>
+    <div class="pinfo" id="recInfo"></div>
+  </div>
+  <div class="card center rcard">
+    <div class="sub" id="recHint">아래 글자를 평소 말하듯 한 번 읽어 주세요</div>
+    <div class="rword" id="recWord"></div>
+    <button class="rbtn" type="button" id="recBtn" aria-label="녹음"><span class="rdot"></span></button>
+    <div class="sub" id="recState">빨간 버튼을 누르고 말한 뒤, 다시 누르세요</div>
+    <div class="acts" style="width:100%">
+      <button class="btn2" type="button" id="recPlay" disabled>▶ 들어 보기</button>
+      <button class="btn2" type="button" id="recNext">다음 →</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="qhead"><h2>전체 목록</h2><button class="mini" type="button" id="recTest">금액으로 들어 보기</button></div>
+    <div class="note">눌러서 다시 녹음할 수 있어요. 초록색은 녹음 완료.</div>
+    <div class="rgrid" id="recGrid"></div>
+  </div>
 </section>
 
 <section id="placed" hidden></section>
@@ -466,7 +501,8 @@ const canTTS=!!TTS||("speechSynthesis" in window&&typeof SpeechSynthesisUtteranc
 let koVoice=null;
 function pickVoice(){if(TTS||!canTTS)return;koVoice=speechSynthesis.getVoices().find(v=>/ko/i.test(v.lang))||null;}
 if(!TTS&&canTTS){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
-const guardian=()=>state.settings.mode==="guardian"||!canTTS;
+const recMode=()=>state.settings.mode==="rec"&&recReady();
+const guardian=()=>!recMode()&&(state.settings.mode==="guardian"||!canTTS);
 function textFor(n){
   const st=state.settings.readStyle||"num";
   if(st==="num")return Number(n).toLocaleString("ko-KR")+"원";
@@ -483,9 +519,104 @@ function sayRaw(text,rate){
 }
 function speak(){
   if(guardian()||!state.cur)return;
+  if(recMode()){playClips(clipsFor(state.cur.t),state.cur.rp>=2);return;}
   sayRaw(sayText(),curRate());
 }
 let ac=null;
+/* ===== 녹음 목소리 =====
+   조각 47개: 일~구, 십~구십, 백~구백, 천~구천, 만, 일만~구만, 원 */
+const CLIPS=(()=>{const a=[];for(let d=1;d<=9;d++)a.push(DN[d]);
+  ["십","백","천"].forEach(u=>{for(let d=1;d<=9;d++)a.push((d===1?"":DN[d])+u);});
+  a.push("만");for(let d=1;d<=9;d++)a.push(DN[d]+"만");a.push("원");return a;})();
+const clipBuf=new Map(); // 글자 → {sr, data(Float32Array)}
+const recReady=()=>CLIPS.every(c=>clipBuf.has(c));
+function clipsFor(n){
+  const out=[],grp=v=>{const t=String(v).padStart(4,"0"),u=["천","백","십",""];
+    for(let i=0;i<4;i++){const d=+t[i];if(d)out.push(u[i]?(d===1?"":DN[d])+u[i]:DN[d]);}};
+  const m=Math.floor(n/10000),r=n%10000;
+  if(m===1)out.push("만");
+  else if(m){const last=m%10;if(m>=10)grp(m-last);out.push(last?DN[last]+"만":"만");}
+  grp(r);out.push("원");return out;
+}
+function getAC(){ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==="suspended")ac.resume();return ac;}
+let playing=[];
+function playClips(list,slow){
+  const ctx=getAC();playing.forEach(s=>{try{s.stop();}catch(e){}});playing=[];
+  let t=ctx.currentTime+.05;
+  list.forEach((c,i)=>{const b=clipBuf.get(c);if(!b)return;
+    const buf=ctx.createBuffer(1,b.data.length,b.sr);buf.copyToChannel(b.data,0);
+    const src=ctx.createBufferSource();src.buffer=buf;src.connect(ctx.destination);src.start(t);playing.push(src);
+    t+=buf.duration+(slow?.4:(i===list.length-2?.06:.02));});
+}
+// 저장: IndexedDB (기기 안)
+const IDB=(()=>{let dbp=null;const open=()=>dbp=dbp||new Promise((res,rej)=>{const r=indexedDB.open("voice",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("clips");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+  const tx=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction("clips",mode),st=t.objectStore("clips"),q=fn(st);t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error);}));
+  return{put:(k,v)=>tx("readwrite",st=>st.put(v,k)),all:()=>open().then(db=>new Promise(res=>{const out=[];const c=db.transaction("clips").objectStore("clips").openCursor();
+    c.onsuccess=()=>{const cur=c.result;if(cur){out.push([cur.key,cur.value]);cur.continue();}else res(out);};c.onerror=()=>res(out);}))};})();
+IDB.all().then(rows=>{rows.forEach(([k,v])=>clipBuf.set(k,v));if(screen==="home")renderSettings();}).catch(()=>{});
+
+// 녹음 → 앞뒤 무음 잘라내고 24kHz로 줄여 저장
+function trimClip(buf){
+  const src=buf.getChannelData(0),sr=buf.sampleRate,f=Math.round(sr*.01),n=Math.floor(src.length/f),rms=[];
+  for(let i=0;i<n;i++){let a=0;for(let j=i*f;j<(i+1)*f;j++)a+=src[j]*src[j];rms.push(Math.sqrt(a/f));}
+  const peak=Math.max(...rms,0),th=Math.max(.01,peak*.08);
+  let a=rms.findIndex(x=>x>th),b=n-1;while(b>0&&rms[b]<=th)b--;
+  if(a<0)return null;
+  a=Math.max(0,a-4);b=Math.min(n-1,b+8);
+  let seg=src.slice(a*f,(b+1)*f);
+  const step=sr>=44000?2:1,outSr=sr/step,out=new Float32Array(Math.floor(seg.length/step));
+  for(let i=0;i<out.length;i++){let v=0;for(let k=0;k<step;k++)v+=seg[i*step+k];out[i]=v/step;}
+  const g=.9/Math.max(peak,.05),fade=Math.round(outSr*.012);
+  for(let i=0;i<out.length;i++){let w=1;if(i<fade)w=i/fade;else if(i>out.length-fade)w=(out.length-i)/fade;out[i]*=Math.min(g,6)*w;}
+  return{sr:outSr,data:out};
+}
+let recIdx=0,mediaRec=null,recStream=null,recTimer=null;
+function openRec(i){
+  recIdx=i??CLIPS.findIndex(c=>!clipBuf.has(c));if(recIdx<0)recIdx=0;show("rec");renderRec();
+}
+function renderRec(){
+  const done=CLIPS.filter(c=>clipBuf.has(c)).length,w=CLIPS[recIdx];
+  $("recInfo").innerHTML=`녹음 <b>${done}</b> / ${CLIPS.length}`;
+  $("recWord").textContent=w;
+  $("recPlay").disabled=!clipBuf.has(w);
+  $("recNext").textContent=recIdx<CLIPS.length-1?"다음 →":"처음 화면으로";
+  $("recTest").hidden=!recReady();
+  $("recGrid").innerHTML=CLIPS.map((c,i)=>`<button type="button" data-i="${i}" class="${clipBuf.has(c)?"done":""}${i===recIdx?" cur":""}">${c}</button>`).join("");
+  $("recGrid").querySelectorAll("button").forEach(b=>b.onclick=()=>{stopRec(true);recIdx=+b.dataset.i;renderRec();});
+}
+let recStarting=false;
+async function startRec(){
+  if(recStarting)return;recStarting=true;
+  try{
+    getAC();
+    recStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  }catch(e){$("recState").textContent="마이크를 쓸 수 없어요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 허용해 주세요.";recStarting=false;return;}
+  recStarting=false;
+  const chunks=[];mediaRec=new MediaRecorder(recStream);
+  mediaRec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  mediaRec.onstop=async()=>{
+    recStream.getTracks().forEach(t=>t.stop());$("recBtn").classList.remove("on");
+    if(mediaRec._cancel){mediaRec=null;return;}mediaRec=null;
+    try{
+      const ab=await new Blob(chunks).arrayBuffer(),buf=await getAC().decodeAudioData(ab),clip=trimClip(buf);
+      if(!clip){$("recState").textContent="소리가 너무 작아요. 조금 더 크게 다시 녹음해 주세요.";return;}
+      const w=CLIPS[recIdx];clipBuf.set(w,clip);await IDB.put(w,clip);
+      playClips([w]);$("recState").textContent="저장했어요. 괜찮으면 다음으로, 아니면 다시 녹음하세요.";renderRec();
+      if(recReady()&&state.settings.mode!=="rec"){state.settings.mode="rec";save();$("recState").textContent=`${CLIPS.length}개 모두 녹음했어요! 이제 이 목소리로 문제를 읽어 줘요.`;}
+    }catch(e){$("recState").textContent="녹음을 저장하지 못했어요. 다시 해 주세요.";}
+  };
+  mediaRec.start();$("recBtn").classList.add("on");$("recState").textContent="녹음 중… 말한 뒤 버튼을 다시 누르세요";
+  clearTimeout(recTimer);recTimer=setTimeout(()=>stopRec(),3500);
+}
+function stopRec(cancel){clearTimeout(recTimer);if(mediaRec&&mediaRec.state==="recording"){mediaRec._cancel=!!cancel;mediaRec.stop();}}
+function bindRec(){
+$("recBtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording")stopRec();else startRec();};
+$("recPlay").onclick=()=>playClips([CLIPS[recIdx]]);
+$("recNext").onclick=()=>{stopRec(true);if(recIdx<CLIPS.length-1){recIdx++;$("recState").textContent="빨간 버튼을 누르고 말한 뒤, 다시 누르세요";renderRec();}else show("home");};
+$("recBack").onclick=()=>{stopRec(true);show("home");};
+$("recTest").onclick=()=>{const n=[9810,3050,12000,4000500,128000][Math.floor(Math.random()*5)];$("recState").textContent=`${Number(n).toLocaleString("ko-KR")}원`;playClips(clipsFor(n));};
+}
 function chime(){
   if(!state.settings.sfx)return;
   try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const t0=ac.currentTime;
@@ -498,7 +629,7 @@ function chime(){
 /* ---------- 화면 전환 ---------- */
 const $=id=>document.getElementById(id);
 let screen="home";
-function show(s){screen=s;["home","play","placed","done","stats"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
+function show(s){screen=s;["home","play","placed","done","stats","rec"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
   if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();}
 const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Number(v));
 
@@ -592,7 +723,15 @@ if(document.getElementById("openTts")){
   };
 }
 function renderSettings(){
-  chips("modeRow",canTTS?[["app","앱이 읽기"],["guardian","보호자가 읽기"]]:[["guardian","보호자가 읽기"]],"mode");
+  {const n=CLIPS.filter(c=>clipBuf.has(c)).length,opts=[];
+   if(canTTS)opts.push(["app","기계 음성"]);
+   if(recReady())opts.push(["rec","녹음 목소리"]);
+   opts.push(["guardian","보호자가 직접"]);
+   chips("modeRow",opts,"mode");
+   const r=$("modeRow");r.querySelector("#recOpen")?.remove();
+   const b=document.createElement("button");b.type="button";b.className="chip";b.id="recOpen";
+   b.textContent=n===0?"🎙 목소리 녹음하기":n<CLIPS.length?`🎙 녹음 이어 하기 (${n}/${CLIPS.length})`:"🎙 녹음 다시 듣기·고치기";
+   b.onclick=()=>openRec();r.appendChild(b);}
   if(LN)renderRemind();else $("remindRow").hidden=true;
   chips("dailyRow",[[10,"10개"],[15,"15개"],[20,"20개"],[30,"30개"]],"daily");
   chips("styleRow",[["num","자연스럽게 (숫자로)"],["spaced","또박또박 (띄어서)"],["ko","한글 그대로"]],"readStyle");
@@ -823,6 +962,7 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&screen==="home")renderHome();});
 buildPad();
+bindRec();
 show("home");
 scheduleReminders();
 if(APP){
