@@ -310,6 +310,12 @@ function u4(n){const u=["천","백","십",""];let s="";const t=String(n).padStar
   for(let i=0;i<4;i++){const d=+t[i];if(!d)continue;s+=(d===1&&u[i]?"":DN[d])+u[i];}return s;}
 function toKo(n){if(!n)return"영";const m=Math.floor(n/10000);return (m?(m===1?"":u4(m))+"만":"")+u4(n%10000);}
 const PLACE=["일","십","백","천","만","십만","백만"];
+function toKoParts(n){
+  const m=Math.floor(n/10000),r=n%10000,parts=[],u=["천","백","십",""],t=String(r).padStart(4,"0");
+  if(m)parts.push((m===1?"":u4(m))+"만");
+  for(let i=0;i<4;i++){const d=+t[i];if(d)parts.push((d===1&&u[i]?"":DN[d])+u[i]);}
+  return parts.join(", ")+" 원";
+}
 
 /* ---------- 약점 분석 ----------
    금액을 자리별 '특징'으로 쪼갬:
@@ -401,7 +407,9 @@ const CAP=window.Capacitor;
 const isApp=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlatform());
 const plug=n=>isApp&&CAP.registerPlugin?CAP.registerPlugin(n):null;
 const TTS=plug("TextToSpeech"),LN=plug("LocalNotifications"),APP=plug("App");
-let ttsOk=null; // 한국어 음성 엔진 유무
+let ttsOk=null;
+// 이전 버전(브라우저 음성 기준) 속도 값을 앱 음성 엔진 기준으로 한 단계씩 낮춤
+if(TTS&&!state.settings.appRate){const map={.6:.45,.75:.6,.95:.8};state.settings.rate=map[state.settings.rate]??.6;state.settings.appRate=true;try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}} // 한국어 음성 엔진 유무
 if(TTS){TTS.isLanguageSupported({lang:"ko-KR"}).then(r=>{ttsOk=!!r.supported;if(screen==="home")renderSettings();}).catch(()=>{ttsOk=true;});}
 
 // 매일 알림: 앞으로 30일치를 하루 하나씩 예약하고, 오늘 퀘스트를 끝내면 오늘 것은 빼 둠
@@ -457,11 +465,12 @@ let koVoice=null;
 function pickVoice(){if(TTS||!canTTS)return;koVoice=speechSynthesis.getVoices().find(v=>/ko/i.test(v.lang))||null;}
 if(!TTS&&canTTS){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
 const guardian=()=>state.settings.mode==="guardian"||!canTTS;
-const curRate=()=>Math.max(.4,state.settings.rate*((state.cur&&state.cur.rp>=2)?.7:1));
+const sayText=()=>state.cur.rp>=2?toKoParts(state.cur.t):toKo(state.cur.t)+" 원";
+const curRate=()=>Math.max(.3,state.settings.rate*((state.cur&&state.cur.rp>=2)?.7:1));
 function speak(){
   if(guardian()||!state.cur)return;
-  if(TTS){const text=toKo(state.cur.t)+" 원";TTS.stop().catch(()=>{}).then(()=>TTS.speak({text,lang:"ko-KR",rate:curRate(),pitch:1,volume:1,category:"playback"})).catch(()=>{});return;}
-  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(toKo(state.cur.t)+" 원");
+  if(TTS){const text=sayText();TTS.stop().catch(()=>{}).then(()=>TTS.speak({text,lang:"ko-KR",rate:curRate(),pitch:1,volume:1,category:"playback"})).catch(()=>{});return;}
+  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(sayText());
     u.lang="ko-KR";u.rate=curRate();if(koVoice)u.voice=koVoice;speechSynthesis.speak(u);}catch(e){}
 }
 let ac=null;
@@ -567,7 +576,7 @@ function renderSettings(){
   chips("modeRow",canTTS?[["app","앱이 읽기"],["guardian","보호자가 읽기"]]:[["guardian","보호자가 읽기"]],"mode");
   if(LN)renderRemind();else $("remindRow").hidden=true;
   chips("dailyRow",[[10,"10개"],[15,"15개"],[20,"20개"],[30,"30개"]],"daily");
-  chips("rateRow",[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
+  chips("rateRow",TTS?[[.45,"아주 천천히"],[.6,"천천히"],[.8,"보통"]]:[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
   chips("commaRow",[[true,"자동으로 찍기"],[false,"안 찍기"]],"comma");
   chips("sfxRow",[[true,"켜기"],[false,"끄기"]],"sfx");
   $("lvNow").textContent=state.level==null?"테스트 전":"레벨 "+state.level;
