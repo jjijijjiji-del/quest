@@ -220,6 +220,8 @@ body{margin:0;-webkit-user-select:none;user-select:none}
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
       <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
       <div class="row" id="dailyRow"><span class="lab">하루 문제 수</span></div>
+      <div class="row" id="styleRow"><span class="lab">읽는 방식 · 누르면 예시(9,810원)를 읽어 줘요</span></div>
+      <div class="row" id="engineRow"><span class="lab">발음이 이상하면 폰의 음성 엔진이나 목소리를 바꿔 보세요</span><button class="chip" type="button" id="openTts">음성 엔진 설정 열기</button></div>
       <div class="row" id="rateRow"><span class="lab">읽는 속도</span></div>
       <div class="row" id="commaRow"><span class="lab">쉼표(,)</span></div>
       <div class="row" id="sfxRow"><span class="lab">정답 효과음</span></div>
@@ -393,7 +395,7 @@ function gen(lv,prev){
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 function fresh(){return{v:2,updatedAt:0,level:null,firstLevel:null,placement:null,cur:null,today:null,days:{},
-  settings:{mode:"app",rate:.75,comma:true,sfx:true,daily:20,remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
+  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:20,remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
 let state=fresh();
 try{const r=JSON.parse(localStorage.getItem(KEY)||"null");if(r&&r.v===2)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});}catch(e){}
 (function(){const st=state.settings;if(st.remind!==undefined){if(st.remind<0)st.remindMode="off";else{st.remindMode="manual";st.reminds=[st.remind];}delete st.remind;}})();
@@ -406,7 +408,7 @@ function save(){
 const CAP=window.Capacitor;
 const isApp=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlatform());
 const plug=n=>isApp&&CAP.registerPlugin?CAP.registerPlugin(n):null;
-const TTS=plug("TextToSpeech"),LN=plug("LocalNotifications"),APP=plug("App");
+const NS=plug("NativeSettings"),TTS=plug("TextToSpeech"),LN=plug("LocalNotifications"),APP=plug("App");
 let ttsOk=null;
 // 이전 버전(브라우저 음성 기준) 속도 값을 앱 음성 엔진 기준으로 한 단계씩 낮춤
 if(TTS&&!state.settings.appRate){const map={.6:.45,.75:.6,.95:.8};state.settings.rate=map[state.settings.rate]??.6;state.settings.appRate=true;try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}} // 한국어 음성 엔진 유무
@@ -465,13 +467,23 @@ let koVoice=null;
 function pickVoice(){if(TTS||!canTTS)return;koVoice=speechSynthesis.getVoices().find(v=>/ko/i.test(v.lang))||null;}
 if(!TTS&&canTTS){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
 const guardian=()=>state.settings.mode==="guardian"||!canTTS;
-const sayText=()=>state.cur.rp>=2?toKoParts(state.cur.t):toKo(state.cur.t)+" 원";
+function textFor(n){
+  const st=state.settings.readStyle||"num";
+  if(st==="num")return Number(n).toLocaleString("ko-KR")+"원";
+  if(st==="spaced")return toKoParts(n).replace(/, /g," ");
+  return toKo(n)+" 원";
+}
+const sayText=()=>state.cur.rp>=2?toKoParts(state.cur.t):textFor(state.cur.t);
 const curRate=()=>Math.max(.3,state.settings.rate*((state.cur&&state.cur.rp>=2)?.7:1));
+const TTS_ON=()=>!!TTS;
+function sayRaw(text,rate){
+  if(TTS_ON()){TTS.stop().catch(()=>{}).then(()=>TTS.speak({text,lang:"ko-KR",rate,pitch:1,volume:1,category:"playback"})).catch(()=>{});return;}
+  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);
+    u.lang="ko-KR";u.rate=rate;if(koVoice)u.voice=koVoice;speechSynthesis.speak(u);}catch(e){}
+}
 function speak(){
   if(guardian()||!state.cur)return;
-  if(TTS){const text=sayText();TTS.stop().catch(()=>{}).then(()=>TTS.speak({text,lang:"ko-KR",rate:curRate(),pitch:1,volume:1,category:"playback"})).catch(()=>{});return;}
-  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(sayText());
-    u.lang="ko-KR";u.rate=curRate();if(koVoice)u.voice=koVoice;speechSynthesis.speak(u);}catch(e){}
+  sayRaw(sayText(),curRate());
 }
 let ac=null;
 function chime(){
@@ -572,10 +584,19 @@ function renderRemind(){
     st.reminds=st.reminds||[];if(!st.reminds.includes(x))st.reminds.push(x);apply();};
 }
 let wipeArmed=false;
+if(document.getElementById("openTts")){
+  if(!NS)$("engineRow").hidden=true;
+  $("openTts").onclick=async()=>{
+    try{await NS.openAndroid({option:"text_to_speech"});}
+    catch(e){try{await NS.openAndroid({option:"accessibility"});}catch(e2){}}
+  };
+}
 function renderSettings(){
   chips("modeRow",canTTS?[["app","앱이 읽기"],["guardian","보호자가 읽기"]]:[["guardian","보호자가 읽기"]],"mode");
   if(LN)renderRemind();else $("remindRow").hidden=true;
   chips("dailyRow",[[10,"10개"],[15,"15개"],[20,"20개"],[30,"30개"]],"daily");
+  chips("styleRow",[["num","자연스럽게 (숫자로)"],["spaced","또박또박 (띄어서)"],["ko","한글 그대로"]],"readStyle");
+  $("styleRow").querySelectorAll(".chip").forEach(b=>{const f=b.onclick;b.onclick=()=>{f();if(!guardian())sayRaw(textFor(9810),state.settings.rate);};});
   chips("rateRow",TTS?[[.45,"아주 천천히"],[.6,"천천히"],[.8,"보통"]]:[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
   chips("commaRow",[[true,"자동으로 찍기"],[false,"안 찍기"]],"comma");
   chips("sfxRow",[[true,"켜기"],[false,"끄기"]],"sfx");
