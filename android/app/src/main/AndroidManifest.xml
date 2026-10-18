@@ -35,6 +35,13 @@
         </provider>
     </application>
 
+    <!-- 음성 인식 서비스 찾기 (안드로이드 11 이상) -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

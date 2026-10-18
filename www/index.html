@@ -211,6 +211,26 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .rgrid button.done{border-color:var(--good);background:var(--good-bg);color:var(--good)}
 .rgrid button.old{border-color:var(--gold);color:var(--gold)}
 .rgrid button.cur{outline:3px solid var(--accent);outline-offset:1px}
+
+/* ---- 보고 읽기 ---- */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--soft);padding:5px;border-radius:14px}
+.tabs button{border:none;background:none;border-radius:10px;padding:12px 6px;font-size:17px;font-weight:700;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+#read:not([hidden]){height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);
+  height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);gap:10px}
+.rbox{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px;transition:border-color .2s,background .2s}
+.rbox.no{border-color:var(--bad);background:var(--bad-bg)}
+.rbox.ok{border-color:var(--good);background:var(--good-bg)}
+.rnum{font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap;letter-spacing:.01em}
+.rko{font-size:20px;font-weight:700;color:var(--gold)}
+.rheard{flex:none;min-height:3em;text-align:center;font-size:17px;color:var(--muted)}
+.rheard b{color:var(--ink)}
+.rheard.no{color:var(--bad)}
+.rrow{justify-content:center;flex-wrap:wrap}
+.mic{flex:none;border:none;border-radius:20px;background:var(--accent);color:var(--accent-ink);font-size:24px;font-weight:800;padding:24px 16px;display:flex;align-items:center;justify-content:center;gap:12px}
+.mic.on{background:var(--bad);color:#fff}
+.mic:disabled{opacity:.5}
+.micic{display:inline-block;transition:transform .08s}
 </style>
 </head>
 <body>
@@ -224,6 +244,10 @@ body{margin:0;-webkit-user-select:none;user-select:none}
     <div class="sub" id="today"></div>
   </div>
 
+  <div class="tabs" id="tabs" hidden>
+    <button type="button" data-t="listen">👂 듣고 쓰기</button>
+    <button type="button" data-t="read">👀 보고 읽기</button>
+  </div>
   <div class="card" id="questCard"></div>
   <div class="card" id="levelCard"></div>
   <button class="btn2" type="button" id="toStats">📈 내 기록 보기</button>
@@ -280,6 +304,26 @@ body{margin:0;-webkit-user-select:none;user-select:none}
   <div class="pad" id="pad"></div>
 </section>
 
+<section id="read" hidden>
+  <div class="ptop">
+    <button class="link" type="button" id="rBack">← 처음으로</button>
+    <div class="pinfo" id="rInfo"></div>
+  </div>
+  <div class="pbar"><i id="rBar"></i></div>
+  <div class="rbox" id="rbox">
+    <div class="sub">소리 내어 읽어 보세요</div>
+    <div class="rnum" id="rNum"></div>
+    <div class="rko" id="rKo" hidden></div>
+  </div>
+  <div class="rheard" id="rHeard" aria-live="polite"></div>
+  <div class="mrow rrow">
+    <button class="mini" type="button" id="rOk" hidden>맞게 읽었어요 ⭕</button>
+    <button class="mini" type="button" id="rHint" hidden>🔊 정답 듣기</button>
+    <button class="mini primary" type="button" id="rSkip" hidden>다음 문제 →</button>
+  </div>
+  <button class="mic" type="button" id="mic"><span class="micic" id="micIc">🎤</span><span id="micTxt">누르고 읽기</span></button>
+</section>
+
 <section id="rec" hidden>
   <div class="ptop">
     <button class="link" type="button" id="recBack">← 처음으로</button>
@@ -308,7 +352,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 
 <section id="stats" hidden>
   <div class="ptop"><button class="link" type="button" id="back2">← 처음으로</button></div>
-  <h1>내 기록</h1>
+  <h1 id="statsTitle">내 기록</h1>
   <div class="tiles" id="tiles"></div>
   <div class="card chart"><h2>레벨 변화</h2><div id="lvChart"></div></div>
   <div class="card chart"><h2>한 번에 맞힌 비율</h2><div id="accChart"></div></div>
@@ -431,7 +475,7 @@ function gen(lv,prev){
 /* ---------- 저장 ---------- */
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-function fresh(){return{v:2,updatedAt:0,level:null,firstLevel:null,placement:null,cur:null,today:null,days:{},
+function fresh(){return{v:2,track:"listen",tracks:{},updatedAt:0,level:null,firstLevel:null,placement:null,cur:null,today:null,days:{},
   settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:20,remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
 let state=fresh();
 try{const r=JSON.parse(localStorage.getItem(KEY)||"null");if(r&&r.v===2)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});}catch(e){}
@@ -441,11 +485,27 @@ function save(){
   try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
 }
 
+/* ---------- 듣고 쓰기 / 보고 읽기: 레벨·기록을 따로 보관 ---------- */
+const TK=["level","firstLevel","placement","cur","today","days","weak"];
+const TNAME={listen:"듣고 쓰기",read:"보고 읽기"};
+function switchTrack(t){
+  const now=state.track||"listen";if(now===t)return;
+  state.tracks=state.tracks||{};
+  const o={};TK.forEach(k=>o[k]=state[k]);state.tracks[now]=o;
+  const n=state.tracks[t]||{};TK.forEach(k=>state[k]=n[k]!==undefined?n[k]:(k==="days"||k==="weak"?{}:null));
+  delete state.tracks[t];state.track=t;save();
+}
+const trackData=n=>(state.track||"listen")===n?state:((state.tracks||{})[n]||{});
+function questDoneToday(){
+  const ns=["listen","read"].filter(n=>trackData(n).level!=null);
+  return ns.length>0&&ns.every(n=>{const t=trackData(n).today;return !!t&&t.date===dkey()&&t.count>=DAILY;});
+}
+
 /* ---------- 앱(안드로이드) 기능 ---------- */
 const CAP=window.Capacitor;
 const isApp=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlatform());
 const plug=n=>isApp&&CAP.registerPlugin?CAP.registerPlugin(n):null;
-const NS=plug("NativeSettings"),TTS=plug("TextToSpeech"),LN=plug("LocalNotifications"),APP=plug("App");
+const SPEECH=plug("SpeechInput"),NS=plug("NativeSettings"),TTS=plug("TextToSpeech"),LN=plug("LocalNotifications"),APP=plug("App");
 let ttsOk=null;
 // 이전 버전(브라우저 음성 기준) 속도 값을 앱 음성 엔진 기준으로 한 단계씩 낮춤
 if(TTS&&!state.settings.appRate){const map={.6:.45,.75:.6,.95:.8};state.settings.rate=map[state.settings.rate]??.6;state.settings.appRate=true;try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}} // 한국어 음성 엔진 유무
@@ -476,7 +536,7 @@ async function scheduleReminders(){
     const times=remindTimes();if(!times.length)return;
     const perm=await LN.checkPermissions();if(perm.display!=="granted")return;
     const now=new Date(),list=[],t=state.today,isToday=t&&t.date===dkey();
-    const doneToday=isToday&&t.count>=DAILY,left=isToday?DAILY-t.count:DAILY,stk=streak();
+    const doneToday=questDoneToday(),left=isToday?DAILY-t.count:DAILY,stk=streak();
     for(let d=0;d<NDAYS;d++){
       if(d===0&&doneToday)continue;
       times.forEach((h,j)=>{
@@ -651,8 +711,8 @@ function chime(){
 /* ---------- 화면 전환 ---------- */
 const $=id=>document.getElementById(id);
 let screen="home";
-function show(s){screen=s;["home","play","placed","done","stats","rec"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
-  if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();}
+function show(s){screen=s;["home","play","placed","done","stats","rec","read"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
+  if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();}
 const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Number(v));
 
 function ensureToday(){
@@ -673,6 +733,9 @@ function streak(){
 /* ---------- 홈 ---------- */
 function renderHome(){
   ensureToday();
+  const tabs=$("tabs");tabs.hidden=!SPEECH;
+  tabs.querySelectorAll("button").forEach(b=>{b.setAttribute("aria-pressed",(state.track||"listen")===b.dataset.t);
+    b.onclick=()=>{switchTrack(b.dataset.t);renderHome();};});
   const now=new Date();
   $("today").textContent=now.toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"long"});
   const qc=$("questCard"),lc=$("levelCard");
@@ -704,8 +767,9 @@ function startPlay(){
   ensureToday();
   if(LN&&!state.settings.askedNotify){state.settings.askedNotify=true;save();askNotify().then(scheduleReminders);}
   if(state.level==null&&!state.placement)state.placement={lv:4,hist:[]};
-  show("play");
-  if(!state.cur)newQ();else{renderPlay();speak();}
+  const R=state.track==="read";
+  show(R?"read":"play");
+  if(!state.cur)newQ();else if(R)renderRead();else{renderPlay();speak();}
 }
 
 /* ---------- 설정 ---------- */
@@ -786,6 +850,7 @@ function newQ(){
   if(!P&&lv>=8&&lv!==11&&lv!==12&&Math.random()<.25)gl=lv>=9?12:11;
   state.cur={t:pickNum(gl,state.cur?.t,!P),lv,tries:0,rv:false};
   input="";save();
+  if(state.track==="read"){$("rHeard").textContent="";$("rHeard").className="rheard";$("rbox").className="rbox";renderRead();return;}
   $("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
   renderPlay();setTimeout(speak,250);
 }
@@ -843,7 +908,7 @@ function onCorrect(){
   record(first,c.rv);
   const up=!state.placement&&lvBefore!=null&&state.level>lvBefore;
   chime();
-  overlay(c.rv?"잘 따라 썼어요!":c.tries?"맞았어요!":"맞았어요! 👏",up?`⭐ 레벨 업! 레벨 ${state.level}`:"");
+  overlay(c.rv?(state.track==="read"?"잘 따라 읽었어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",up?`⭐ 레벨 업! 레벨 ${state.level}`:"");
   setTimeout(()=>{hideOverlay();busy=false;advance();},up?2200:1400);
 }
 function record(first,rv){
@@ -884,6 +949,94 @@ function overlay(title,sub){
   $("ov").hidden=false;
 }
 function hideOverlay(){$("ov").hidden=true;}
+
+/* ---------- 보고 읽기 ---------- */
+// "구천팔백십 원", "9810원", "9천 810원", "만 2천 원", "사백만 오백" → 숫자
+function parseRun(r){
+  const KD={"일":1,"이":2,"삼":3,"사":4,"오":5,"육":6,"륙":6,"칠":7,"팔":8,"구":9},U={"십":10,"백":100,"천":1000};
+  let total=0,sec=0,num=null,i=0,any=false;
+  while(i<r.length){const ch=r[i];
+    if(ch>="0"&&ch<="9"){let j=i;while(j<r.length&&r[j]>="0"&&r[j]<="9")j++;num=+r.slice(i,j);i=j;any=true;continue;}
+    if(KD[ch]){num=KD[ch];any=true;}
+    else if(U[ch]){sec+=(num??1)*U[ch];num=null;any=true;}
+    else if(ch==="만"){sec+=num??0;total+=(sec||1)*10000;sec=0;num=null;any=true;}
+    i++;}
+  return any?total+sec+(num??0):null;
+}
+function parseKoNum(str){
+  const s=String(str).replace(/[,\s.]/g,"").replace(/(이요|이에요|예요|입니다|이다|요)$/,"").replace(/영|공/g,"0");
+  const runs=s.match(/[0-9일이삼사오육륙칠팔구십백천만]+/g)||[];
+  let best=null,bl=0;
+  for(const r of runs){const v=parseRun(r);if(v!=null&&r.length>bl){best=v;bl=r.length;}}
+  return best;
+}
+let listening=false;
+function fitNum(){
+  const el=$("rNum"),len=el.textContent.length||1,w=Math.min(window.innerWidth,520)-70;
+  el.style.fontSize=Math.round(Math.max(28,Math.min(84,w/(len*.6))))+"px";
+}
+function renderRead(){
+  const P=state.placement,t=state.today,c=state.cur;
+  if(P){$("rInfo").innerHTML=`실력 확인 <b>${Math.min(P.hist.length+1,TESTN)}</b> / ${TESTN}`;$("rBar").style.width=(P.hist.length/TESTN*100)+"%";}
+  else{const n=t.count;$("rInfo").innerHTML=n<DAILY?`<b>${n+1}</b> / ${DAILY} · 레벨 ${state.level}`:`더 풀기 <b>${n+1-DAILY}</b> · 레벨 ${state.level}`;
+    $("rBar").style.width=Math.min(n/DAILY,1)*100+"%";}
+  $("rNum").textContent=c?Number(c.t).toLocaleString("ko-KR")+"원":"";fitNum();
+  $("rKo").hidden=!(c&&c.rv);if(c)$("rKo").textContent=toKo(c.t)+" 원";
+  $("rOk").hidden=!(c&&c.tries>0&&!listening);
+  $("rHint").hidden=!(c&&c.tries>=2&&!c.rv&&!listening);
+  $("rSkip").hidden=!(c&&c.rv&&!listening);
+  $("mic").classList.toggle("on",listening);
+  $("micTxt").textContent=listening?"듣고 있어요…":(c&&c.tries>0?"다시 읽기":"누르고 읽기");
+}
+function flushMiss(c){if(c&&c.miss!=null){learn(c.t,c.miss);c.miss=null;}}
+async function doListen(){
+  if(busy||!state.cur||!SPEECH)return;
+  if(listening){try{await SPEECH.stop();}catch(e){}return;}
+  listening=true;$("rHeard").className="rheard";$("rHeard").textContent="다 읽으면 잠깐 기다리면 돼요";$("rbox").className="rbox";renderRead();
+  let r;try{r=await SPEECH.listen({silenceMs:3000});}catch(e){r={matches:[],error:-1};}
+  listening=false;$("micIc").style.transform="";
+  handleHeard(r.matches||[],r.error);
+}
+function handleHeard(ms,err){
+  const c=state.cur;if(!c){renderRead();return;}
+  const h=$("rHeard");
+  if(!ms.length){
+    h.className="rheard";
+    h.textContent=err===9?"마이크를 허용해야 해요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 켜 주세요."
+      :err===100?"이 폰에서 음성 인식을 쓸 수 없어요. Google 앱이 설치되어 있는지 확인해 주세요."
+      :err===2||err===1?"인터넷 연결을 확인해 주세요. 음성 인식에 인터넷이 필요할 수 있어요."
+      :"잘 안 들렸어요. 버튼을 누르고 다시 읽어 주세요.";
+    renderRead();return;
+  }
+  const vals=ms.map(parseKoNum),hit=vals.indexOf(c.t);
+  if(hit>=0){
+    flushMiss(c);
+    h.className="rheard";h.innerHTML=`들린 말: <b>${ms[hit]}</b>`;$("rbox").className="rbox ok";
+    renderRead();onCorrect();return;
+  }
+  const heard=vals.find(v=>v!=null);
+  if(c.tries===0&&!c.rv&&heard!=null)c.miss=String(heard);
+  c.tries++;save();
+  h.className="rheard no";
+  h.innerHTML=`이렇게 들렸어요: <b>${heard!=null?Number(heard).toLocaleString("ko-KR")+"원":ms[0]}</b><br>${c.rv?"정답을 듣고 따라 읽어 보세요":"다시 한 번 읽어 볼까요?"}`;
+  const b=$("rbox");b.className="rbox no";b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");
+  renderRead();
+}
+function bindRead(){
+  $("mic").onclick=doListen;
+  $("rBack").onclick=async()=>{if(listening){try{await SPEECH.stop();}catch(e){}}show("home");};
+  $("rOk").onclick=()=>{const c=state.cur;if(!c||busy)return;
+    if(c.tries<=1&&!c.rv){c.tries=0;c.miss=null;}else flushMiss(c);
+    $("rHeard").className="rheard";$("rHeard").textContent="";$("rbox").className="rbox ok";onCorrect();};
+  $("rHint").onclick=()=>{const c=state.cur;if(!c)return;flushMiss(c);c.rv=true;save();
+    $("rHeard").className="rheard";$("rHeard").textContent=guardian()?"보호자가 정답을 읽어 주세요. 그다음 따라 읽어 보세요.":"듣고 따라 읽어 보세요";renderRead();speak();};
+  $("rSkip").onclick=()=>{const c=state.cur;if(!c||busy||listening)return;flushMiss(c);record(false,true);advance();};
+  if(SPEECH){
+    SPEECH.addListener("partial",d=>{if(listening&&d.text){$("rHeard").className="rheard";$("rHeard").textContent="… "+d.text;}});
+    SPEECH.addListener("level",d=>{if(listening)$("micIc").style.transform=`scale(${1+Math.max(0,Math.min(10,d.level))*.05})`;});
+  }
+  window.addEventListener("resize",()=>{if(screen==="read")fitNum();});
+}
 
 /* ---------- 실력 확인 결과 ---------- */
 function finishTest(){
@@ -928,6 +1081,7 @@ function showDone(){
 
 /* ---------- 기록 ---------- */
 function renderStats(){
+  $("statsTitle").textContent=SPEECH?"내 기록 · "+TNAME[state.track||"listen"]:"내 기록";
   const keys=Object.keys(state.days).sort(),ds=keys.map(k=>state.days[k]);
   const tot=ds.reduce((a,d)=>a+d.n,0),ok=ds.reduce((a,d)=>a+d.ok,0);
   const best=Math.max(state.level||0,...ds.map(d=>d.lv||0));
@@ -985,6 +1139,7 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&screen==="home")renderHome();});
 buildPad();
 bindRec();
+bindRead();
 show("home");
 scheduleReminders();
 if(APP){
