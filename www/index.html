@@ -231,6 +231,16 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .mic.on{background:var(--bad);color:#fff}
 .mic:disabled{opacity:.5}
 .micic{display:inline-block;transition:transform .08s}
+
+.sep{border:none;border-top:1px solid var(--line);margin:4px 0;width:100%}
+.lvbadge.dim{background:var(--soft);color:var(--muted)}
+.dots i.r{background:var(--soft);outline:1px dashed var(--line);outline-offset:-1px}
+.dots i.r.on{background:var(--gold);outline:none}
+.stepper{gap:10px}
+.stepper .slab{min-width:70px;font-size:15px;color:var(--muted)}
+.intro{gap:14px}
+.intro .iic{font-size:56px;line-height:1}
+.intro>div:not(.sub){font-size:18px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -244,10 +254,6 @@ body{margin:0;-webkit-user-select:none;user-select:none}
     <div class="sub" id="today"></div>
   </div>
 
-  <div class="tabs" id="tabs" hidden>
-    <button type="button" data-t="listen">👂 듣고 쓰기</button>
-    <button type="button" data-t="read">👀 보고 읽기</button>
-  </div>
   <div class="card" id="questCard"></div>
   <div class="card" id="levelCard"></div>
   <button class="btn2" type="button" id="toStats">📈 내 기록 보기</button>
@@ -264,7 +270,8 @@ body{margin:0;-webkit-user-select:none;user-select:none}
       <div class="row" id="commaRow"><span class="lab">쉼표(,)</span></div>
       <div class="row" id="sfxRow"><span class="lab">정답 효과음</span></div>
       <div class="row"><span class="lab">레벨 직접 바꾸기</span>
-        <div class="stepper"><button type="button" id="lvDown" aria-label="레벨 내리기">−</button><b id="lvNow"></b><button type="button" id="lvUp" aria-label="레벨 올리기">+</button></div>
+        <div class="stepper" data-k="listen"><span class="slab">듣고 쓰기</span><button type="button" data-d="-1" aria-label="듣고 쓰기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="듣고 쓰기 레벨 올리기">+</button></div>
+        <div class="stepper" data-k="read"><span class="slab">보고 읽기</span><button type="button" data-d="-1" aria-label="보고 읽기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="보고 읽기 레벨 올리기">+</button></div>
       </div>
       <div class="row"><span class="lab">기타</span>
         <button class="chip" type="button" id="retest">실력 확인 다시 하기</button>
@@ -352,7 +359,11 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 
 <section id="stats" hidden>
   <div class="ptop"><button class="link" type="button" id="back2">← 처음으로</button></div>
-  <h1 id="statsTitle">내 기록</h1>
+  <h1>내 기록</h1>
+  <div class="tabs" id="stTabs" hidden>
+    <button type="button" data-t="listen">👂 듣고 쓰기</button>
+    <button type="button" data-t="read">👀 보고 읽기</button>
+  </div>
   <div class="tiles" id="tiles"></div>
   <div class="card chart"><h2>레벨 변화</h2><div id="lvChart"></div></div>
   <div class="card chart"><h2>한 번에 맞힌 비율</h2><div id="accChart"></div></div>
@@ -401,10 +412,9 @@ function toKoParts(n){
 }
 
 /* ---------- 약점 분석 ----------
-   금액을 자리별 '특징'으로 쪼갬:
-   one:백  → 소리로는 안 나오는 1 (천백 = 1,100)
-   zero:백 → 말에 안 나오는 빈 자리 0 (삼천오십 = 3,050)
-   dig:7   → 숫자 소리 자체 (칠) */
+   ① 자리 특징: one:백(소리로는 안 나오는 1, 천백=1,100) · zero:백(빈 자리 0, 3,050) · dig:7(숫자 소리)
+   ② 실수 유형: 0 빠뜨림 · 이어 붙임 · 자리 밀림 · 순서 바뀜
+   ③ 숫자 짝 헷갈림: 7을 1로 쓰는 식 */
 function tagsOf(n){
   const s=String(n),L=s.length,man=Math.floor(n/10000),out=[];
   let lastNZ=-1;for(let i=0;i<L;i++)if(s[i]!=="0")lastNZ=i;
@@ -426,30 +436,82 @@ const TAGL={
   "zero:백":"백 자리가 비는 금액 (3,050원)",
   "zero:천":"천 자리가 비는 금액 (40,500원)",
   "zero:만":"만 자리가 비는 금액 (205,000원)",
-  "zero:십만":"십만 자리가 비는 금액 (4,050,000원)"
+  "zero:십만":"십만 자리가 비는 금액 (4,050,000원)",
+  "err:zdrop":"빈 자리 0을 빠뜨려요 (3,050 → 350)",
+  "err:concat":"들리는 대로 이어 붙여요 (1,100 → 1000100)",
+  "err:shift":"자릿수가 하나 밀려요 (9,810 → 98,100)",
+  "err:order":"숫자 순서가 바뀌어요 (9,810 → 9,180)"
 };
-const tagLabel=t=>TAGL[t]||(t.startsWith("dig:")?`숫자 '${DN[+t.slice(4)]}' (${t.slice(4)})`:t);
-// ans가 null이면 한 번에 맞힌 것. 틀렸으면 자리별로 비교해 틀린 자리의 특징에 점수
-function learn(target,ans){
-  const tg=tagsOf(target),s=String(target),miss=new Map();
-  if(ans!=null){
-    const a=String(+ans);
-    if(a.length===s.length){for(let i=0;i<s.length;i++)if(a[i]!==s[i])tg.filter(x=>x.i===i).forEach(x=>miss.set(x.t,1));}
-    else tg.forEach(x=>miss.set(x.t,Math.max(miss.get(x.t)||0,x.t.startsWith("dig:")?.5:1)));
+function label(key){
+  if(TAGL[key])return TAGL[key];
+  if(key.startsWith("pair:")){const a=key[5],b=key[7];return `'${DN[+a]}(${a})'을 '${DN[+b]}(${b})'로 헷갈려요`;}
+  if(key.startsWith("dig:"))return `숫자 '${DN[+key.slice(4)]}' (${key.slice(4)})`;
+  return key;
+}
+// 실수 유형을 판별할 기회가 있는 금액인지
+const OPP={
+  "err:zdrop":n=>tagsOf(n).some(x=>x.t.startsWith("zero:")),
+  "err:concat":n=>String(n).replace(/0/g,"").length>=2,
+  "err:shift":n=>/0$/.test(String(n)),
+  "err:order":n=>new Set(String(n).replace(/0/g,"")).size>=2
+};
+// 정답 t, 쓴 답 a (숫자 문자열) → 실수 유형
+function classify(t,a){
+  if(a===t)return null;
+  const T=+t,A=+a;
+  for(const m of [10,100,1000])if(A*m===T||A===T*m)return{type:"shift"};
+  const nz=x=>x.replace(/0/g,"");
+  if(nz(a)===nz(t)&&a.length!==t.length)return{type:a.length<t.length?"zdrop":"concat"};
+  if(a.length===t.length){
+    const diff=[];for(let i=0;i<t.length;i++)if(a[i]!==t[i])diff.push(i);
+    if(diff.length===1)return{type:"digit",diff,from:t[diff[0]],to:a[diff[0]]};
+    if([...a].sort().join("")===[...t].sort().join(""))return{type:"order",diff};
+    return{type:"multi",diff};
   }
-  state.weak=state.weak||{};
-  new Set(tg.map(x=>x.t)).forEach(t=>{
-    const w=state.weak[t]||(state.weak[t]={n:0,m:0});
-    w.n=+(w.n*.95+1).toFixed(3);w.m=+(w.m*.95+(miss.get(t)||0)).toFixed(3);
-  });
+  return{type:"len"};
+}
+const decay=(v,add)=>+((v||0)*.95+add).toFixed(3);
+// ans가 null이면 한 번에 맞힌 것
+function learn(k,target,ans){
+  const s=SK(k),W=s.weak||(s.weak={}),P=s.pair||(s.pair={}),SE=s.seen||(s.seen={});
+  const t=String(target),tg=tagsOf(target),miss=new Map();let pk=null;
+  if(ans!=null){
+    const cl=classify(t,String(+ans));
+    if(cl){
+      if(cl.type==="zdrop")tg.filter(x=>x.t.startsWith("zero:")).forEach(x=>miss.set(x.t,1));
+      if(cl.type==="digit"||cl.type==="multi")cl.diff.forEach(i=>tg.filter(x=>x.i===i).forEach(x=>miss.set(x.t,1)));
+      if(cl.type==="len")tg.forEach(x=>miss.set(x.t,x.t.startsWith("dig:")?.5:1));
+      if(["zdrop","concat","shift","order"].includes(cl.type))miss.set("err:"+cl.type,1);
+      if(cl.type==="digit")pk=cl.from+">"+cl.to;
+    }
+  }
+  const keys=new Set(tg.map(x=>x.t));
+  Object.entries(OPP).forEach(([key,f])=>{if(f(target))keys.add(key);});
+  keys.forEach(key=>{const w=W[key]||(W[key]={n:0,m:0});w.n=decay(w.n,1);w.m=decay(w.m,miss.get(key)||0);});
+  new Set(t).forEach(d=>{SE[d]=decay(SE[d],1);});
+  Object.keys(P).forEach(x=>{if(t.includes(x[0])&&x!==pk)P[x]=decay(P[x],0);});
+  if(pk)P[pk]=decay(P[pk],1);
+}
+function weakList(k){
+  const s=SK(k),out=[];
+  for(const [key,w] of Object.entries(s.weak||{}))if(w.n>=4)out.push({key,rate:w.m/w.n});
+  for(const [pk,m] of Object.entries(s.pair||{})){const n=(s.seen||{})[pk[0]]||0;if(m>=1.8&&n>=3)out.push({key:"pair:"+pk,rate:Math.min(1,m/n)});}
+  out.forEach(x=>x.acc=Math.round((1-x.rate)*100));
+  return out;
+}
+function hasFeat(key,n){
+  if(key.startsWith("pair:"))return String(n).includes(key[5]);
+  if(key==="err:concat")return String(n).replace(/0/g,"").length>=3;
+  if(OPP[key])return OPP[key](n);
+  return tagsOf(n).some(x=>x.t===key);
 }
 // 약점이 있으면 10문제 중 4문제꼴로 그 약점이 들어간 금액을 냄
-function pickNum(gl,prev,targeted){
-  const c=Object.entries(state.weak||{}).filter(([,w])=>w.n>=4&&w.m/w.n>=.3);
+function pickNum(k,gl,prev,targeted){
+  const c=weakList(k).filter(x=>x.rate>=(x.key.startsWith("pair:")?.25:.3));
   if(targeted&&c.length&&Math.random()<.4){
-    let r=Math.random()*c.reduce((a,[,w])=>a+w.m/w.n,0),tag=c[0][0];
-    for(const [t,w] of c){r-=w.m/w.n;if(r<=0){tag=t;break;}}
-    for(let i=0;i<300;i++){const n=gen(gl,prev);if(tagsOf(n).some(x=>x.t===tag))return n;}
+    let r=Math.random()*c.reduce((a,x)=>a+x.rate,0),key=c[0].key;
+    for(const x of c){r-=x.rate;if(r<=0){key=x.key;break;}}
+    for(let i=0;i<300;i++){const n=gen(gl,prev);if(hasFeat(key,n))return n;}
   }
   return gen(gl,prev);
 }
@@ -472,34 +534,47 @@ function gen(lv,prev){
   return L.ex;
 }
 
-/* ---------- 저장 ---------- */
+/* ---------- 저장 ----------
+   실력(레벨·약점)은 듣고 쓰기 / 보고 읽기 따로, 하루 문제는 하나로 이어서 */
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-function fresh(){return{v:2,track:"listen",tracks:{},updatedAt:0,level:null,firstLevel:null,placement:null,cur:null,today:null,days:{},
+const TNAME={listen:"듣고 쓰기",read:"보고 읽기"};
+const freshSkill=()=>({level:null,firstLevel:null,placement:null,weak:{},pair:{},seen:{},win:[],since:0,lastDown:null});
+const freshTk=()=>({n:0,ok:0,part:0,rv:0,lv0:null});
+function fresh(){return{v:3,updatedAt:0,skills:{listen:freshSkill(),read:freshSkill()},cur:null,today:null,days:{},lastSkill:null,
   settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:20,remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
+// 예전 저장 형식(v2: 듣고 쓰기/보고 읽기를 탭으로 따로 풀던 때)을 옮겨 옴
+function migrate(r){
+  const st=fresh();st.settings=Object.assign(st.settings,r.settings||{});st.habit=r.habit||[];
+  const tr=Object.assign({},r.tracks||{});
+  tr[r.track||"listen"]={level:r.level,firstLevel:r.firstLevel,placement:r.placement,days:r.days,weak:r.weak};
+  for(const k of ["listen","read"]){
+    const t=tr[k];if(!t)continue;const s=st.skills[k];
+    s.level=t.level??null;s.firstLevel=t.firstLevel??null;s.weak=t.weak||{};
+    s.placement=t.placement&&t.placement.hist&&t.placement.hist.length?t.placement:null;
+    for(const [d,v] of Object.entries(t.days||{})){
+      const day=st.days[d]||(st.days[d]={n:0,goal:v.goal||20});
+      day[k]={n:v.n||0,ok:v.ok||0,part:0,rv:v.rv||0,lv0:v.lv0??v.lv,lv:v.lv};day.n+=v.n||0;
+    }
+  }
+  const d=dkey(),day=st.days[d];
+  if(day){st.today={date:d,count:day.n,doneShown:day.n>=(day.goal||20),listen:freshTk(),read:freshTk()};
+    for(const k of ["listen","read"])if(day[k])Object.assign(st.today[k],{n:day[k].n,ok:day[k].ok,rv:day[k].rv,lv0:day[k].lv0});}
+  return st;
+}
 let state=fresh();
-try{const r=JSON.parse(localStorage.getItem(KEY)||"null");if(r&&r.v===2)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});}catch(e){}
+try{const r=JSON.parse(localStorage.getItem(KEY)||"null");
+  if(r&&r.v===3)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});
+  else if(r&&r.v===2)state=migrate(r);
+  ["listen","read"].forEach(k=>state.skills[k]=Object.assign(freshSkill(),state.skills[k]||{}));
+}catch(e){}
 (function(){const st=state.settings;if(st.remind!==undefined){if(st.remind<0)st.remindMode="off";else{st.remindMode="manual";st.reminds=[st.remind];}delete st.remind;}})();
 function save(){
   state.updatedAt=Date.now();
   try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
 }
-
-/* ---------- 듣고 쓰기 / 보고 읽기: 레벨·기록을 따로 보관 ---------- */
-const TK=["level","firstLevel","placement","cur","today","days","weak"];
-const TNAME={listen:"듣고 쓰기",read:"보고 읽기"};
-function switchTrack(t){
-  const now=state.track||"listen";if(now===t)return;
-  state.tracks=state.tracks||{};
-  const o={};TK.forEach(k=>o[k]=state[k]);state.tracks[now]=o;
-  const n=state.tracks[t]||{};TK.forEach(k=>state[k]=n[k]!==undefined?n[k]:(k==="days"||k==="weak"?{}:null));
-  delete state.tracks[t];state.track=t;save();
-}
-const trackData=n=>(state.track||"listen")===n?state:((state.tracks||{})[n]||{});
-function questDoneToday(){
-  const ns=["listen","read"].filter(n=>trackData(n).level!=null);
-  return ns.length>0&&ns.every(n=>{const t=trackData(n).today;return !!t&&t.date===dkey()&&t.count>=DAILY;});
-}
+const SK=k=>state.skills[k];
+const questDoneToday=()=>{const t=state.today;return !!t&&t.date===dkey()&&t.count>=DAILY;};
 
 /* ---------- 앱(안드로이드) 기능 ---------- */
 const CAP=window.Capacitor;
@@ -535,7 +610,7 @@ async function scheduleReminders(){
     if(mine.length)await LN.cancel({notifications:mine});
     const times=remindTimes();if(!times.length)return;
     const perm=await LN.checkPermissions();if(perm.display!=="granted")return;
-    const now=new Date(),list=[],t=state.today,isToday=t&&t.date===dkey();
+    ensureToday();const now=new Date(),list=[],t=state.today,isToday=t&&t.date===dkey();
     const doneToday=questDoneToday(),left=isToday?DAILY-t.count:DAILY,stk=streak();
     for(let d=0;d<NDAYS;d++){
       if(d===0&&doneToday)continue;
@@ -718,8 +793,8 @@ const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Numbe
 function ensureToday(){
   const d=dkey();
   if(!state.today||state.today.date!==d){
-    state.today={date:d,count:0,first:0,rv:0,up:0,down:0,startLv:state.level,doneShown:false};
-    if(!state.placement)state.cur=null;
+    state.today={date:d,count:0,doneShown:false,listen:freshTk(),read:freshTk()};
+    const c=state.cur;if(c&&!SK(c.k).placement)state.cur=null;
   }
 }
 function streak(){
@@ -729,47 +804,57 @@ function streak(){
   while(ok(dkey(d))){n++;d.setDate(d.getDate()-1);}
   return n;
 }
+const readOK=()=>!!SPEECH;
+const SKILLS=()=>readOK()?["listen","read"]:["listen"];
+const half=()=>Math.ceil(DAILY/2);
+// 하루 문제: 듣고 쓰기 절반을 먼저, 그다음 보고 읽기 나머지. 다 풀고 더 풀면 5문제씩 번갈아
+function skillFor(){
+  if(!readOK())return "listen";
+  const t=state.today;
+  if(t.listen.n<half())return "listen";
+  if(t.read.n<DAILY-half())return "read";
+  return Math.floor((t.count-DAILY)/5)%2===0?"listen":"read";
+}
+const placing=k=>{const p=SK(k).placement;return !!p&&p.hist.length>0&&p.hist.length<TESTN;};
+function nextSkill(){
+  for(const k of SKILLS())if(placing(k))return k; // 실력 확인은 끝날 때까지 이어서
+  return skillFor();
+}
 
 /* ---------- 홈 ---------- */
+function lvBlock(k){
+  const s=SK(k),nm=SKILLS().length>1?TNAME[k]+" · ":"";
+  if(s.level==null)return `<div class="lv"><div class="lvbadge dim"><b>?</b><span>레벨</span></div>
+    <div class="lvtxt"><div class="nm">${nm}실력 확인 전</div><div class="sub">처음 풀 때 ${TESTN}문제로 시작 레벨을 정해요</div></div></div>`;
+  const L=LV[s.level],f=s.firstLevel;
+  return `<div class="lv"><div class="lvbadge"><b>${s.level}</b><span>레벨</span></div>
+    <div class="lvtxt"><div class="nm">${nm}${L.nm}</div><div class="sub">예) ${k==="read"?`${Number(L.ex).toLocaleString("ko-KR")}원 → "${toKo(L.ex)} 원"`:`${toKo(L.ex)} 원 → ${Number(L.ex).toLocaleString("ko-KR")}원`}</div></div></div>
+    <div class="meter">${Array.from({length:MAXLV},(_,i)=>`<i class="${i+1===f&&f<s.level?"start":i<s.level?"on":""}"></i>`).join("")}</div>
+    ${f!=null&&s.level>f?`<div class="grow">처음 레벨 ${f} → 지금 <b>레벨 ${s.level}</b>. ${s.level-f}단계 올라왔어요!</div>`:""}`;
+}
 function renderHome(){
   ensureToday();
-  const tabs=$("tabs");tabs.hidden=!SPEECH;
-  tabs.querySelectorAll("button").forEach(b=>{b.setAttribute("aria-pressed",(state.track||"listen")===b.dataset.t);
-    b.onclick=()=>{switchTrack(b.dataset.t);renderHome();};});
   const now=new Date();
   $("today").textContent=now.toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"long"});
-  const qc=$("questCard"),lc=$("levelCard");
-  if(state.level==null){
-    const p=state.placement;
-    qc.innerHTML=`<h2>처음 오셨네요</h2>
-      <div>먼저 짧은 실력 확인 문제 ${TESTN}개를 풀어요. 결과에 맞춰 시작 레벨이 정해지고, 그다음부터 매일 ${DAILY}문제씩 풀면 돼요.</div>
-      <button class="btn" type="button" id="startBtn">${p&&p.hist.length?`실력 확인 이어 하기 (${p.hist.length}/${TESTN})`:"실력 확인 시작"}</button>`;
-    lc.hidden=true;
-  }else{
-    const t=state.today,c=Math.min(t.count,DAILY),fin=t.count>=DAILY;
-    qc.innerHTML=`<div class="qhead"><h2>오늘의 문제</h2><div class="qcount">${c}<small> / ${DAILY}</small></div></div>
-      <div class="dots" style="grid-template-columns:repeat(${Math.min(DAILY,15)},1fr)">${Array.from({length:DAILY},(_,i)=>`<i class="${i<c?"on":""}"></i>`).join("")}</div>
-      ${fin?`<div class="stamp">✔ 오늘 퀘스트 완료! 한 번에 맞힌 문제 ${t.first}개</div>`:""}
-      <button class="btn" type="button" id="startBtn">${fin?"더 풀어 보기":t.count?"이어서 풀기":"오늘 문제 시작"}</button>
-      ${streak()?`<div class="streak">🔥 <span><b>${streak()}</b>일 연속 완료</span></div>`:""}`;
-    lc.hidden=false;
-    const L=LV[state.level],f=state.firstLevel;
-    lc.innerHTML=`<div class="lv"><div class="lvbadge"><b>${state.level}</b><span>레벨</span></div>
-      <div class="lvtxt"><div class="nm">${L.nm}</div><div class="sub">예) ${toKo(L.ex)} 원 → ${Number(L.ex).toLocaleString("ko-KR")}원</div></div></div>
-      <div class="meter">${Array.from({length:MAXLV},(_,i)=>`<i class="${i+1===f&&f<state.level?"start":i<state.level?"on":""}"></i>`).join("")}</div>
-      <div class="grow">${f==null?"":state.level>f?`처음 레벨 ${f} → 지금 <b>레벨 ${state.level}</b>. ${state.level-f}단계 올라왔어요!`
-        :`처음 레벨 ${f}에서 시작했어요. 3문제 연속으로 한 번에 맞히면 레벨이 올라가요.`}</div>`;
-  }
+  const qc=$("questCard"),lc=$("levelCard"),t=state.today,c=Math.min(t.count,DAILY),fin=t.count>=DAILY;
+  const first=SKILLS().some(k=>SK(k).level==null);
+  qc.innerHTML=`<div class="qhead"><h2>오늘의 문제</h2><div class="qcount">${c}<small> / ${DAILY}</small></div></div>
+    <div class="dots" style="grid-template-columns:repeat(${Math.min(DAILY,15)},1fr)">${Array.from({length:DAILY},(_,i)=>`<i class="${i<c?"on":""}${readOK()&&i>=half()?" r":""}"></i>`).join("")}</div>
+    ${readOK()?`<div class="sub">👂 듣고 쓰기 ${half()}문제 → 👀 보고 읽기 ${DAILY-half()}문제를 이어서 풀어요</div>`:""}
+    ${first&&!t.count?`<div class="sub">처음 하는 부분은 실력 확인 ${TESTN}문제부터 시작해요</div>`:""}
+    ${fin?`<div class="stamp">✔ 오늘 퀘스트 완료! 한 번에 맞힌 문제 ${t.listen.ok+t.read.ok}개</div>`:""}
+    <button class="btn" type="button" id="startBtn">${fin?"더 풀어 보기":t.count||state.cur?"이어서 풀기":"오늘 문제 시작"}</button>
+    ${streak()?`<div class="streak">🔥 <span><b>${streak()}</b>일 연속 완료</span></div>`:""}`;
+  lc.innerHTML=SKILLS().map(lvBlock).join(`<hr class="sep">`)+`<div class="note">최근 문제를 대부분 한 번에 맞히면 레벨이 올라가요.</div>`;
   $("startBtn").onclick=startPlay;
   renderSettings();
 }
 function startPlay(){
   ensureToday();
   if(LN&&!state.settings.askedNotify){state.settings.askedNotify=true;save();askNotify().then(scheduleReminders);}
-  if(state.level==null&&!state.placement)state.placement={lv:4,hist:[]};
-  const R=state.track==="read";
-  show(R?"read":"play");
-  if(!state.cur)newQ();else if(R)renderRead();else{renderPlay();speak();}
+  const c=state.cur;
+  if(c){show(c.k==="read"?"read":"play");if(c.k!=="read")speak();return;}
+  newQ();
 }
 
 /* ---------- 설정 ---------- */
@@ -825,7 +910,10 @@ function renderSettings(){
   chips("rateRow",TTS?[[.45,"아주 천천히"],[.6,"천천히"],[.8,"보통"]]:[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
   chips("commaRow",[[true,"자동으로 찍기"],[false,"안 찍기"]],"comma");
   chips("sfxRow",[[true,"켜기"],[false,"끄기"]],"sfx");
-  $("lvNow").textContent=state.level==null?"테스트 전":"레벨 "+state.level;
+  document.querySelectorAll(".stepper[data-k]").forEach(el=>{const k=el.dataset.k,s=SK(k);
+    el.hidden=k==="read"&&!readOK();el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
+    el.querySelectorAll("button").forEach(b=>b.onclick=()=>{if(s.level==null)return;const v=s.level+ +b.dataset.d;if(v<1||v>MAXLV)return;
+      s.level=v;s.win=[];s.since=0;save();renderHome();});});
   $("wipe").textContent=wipeArmed?"정말 지울까요? 한 번 더 누르세요":"기록 모두 지우기";
   renderSync();
 }
@@ -835,30 +923,50 @@ function renderSync(){
   else if(TTS&&ttsOk===false)t+=" 한국어 음성이 설치되어 있지 않아요. 폰 설정 → 텍스트 음성 변환에서 Google 음성 엔진의 한국어 음성을 받아 주세요.";
   $("syncNote").textContent=t;
 }
-$("lvDown").onclick=()=>{if(state.level>1){state.level--;state.up=state.down=0;save();renderHome();}};
-$("lvUp").onclick=()=>{if(state.level!=null&&state.level<MAXLV){state.level++;save();renderHome();}};
-$("retest").onclick=()=>{state.placement={lv:state.level||4,hist:[]};state.cur=null;save();startPlay();};
+$("retest").onclick=()=>{SKILLS().forEach(k=>{const s=SK(k);s.placement={lv:s.level||4,hist:[]};});state.cur=null;state.lastSkill=null;save();startPlay();};
 $("wipe").onclick=()=>{if(!wipeArmed){wipeArmed=true;renderSettings();setTimeout(()=>{wipeArmed=false;renderSettings();},4000);return;}
   wipeArmed=false;const s=state.settings;state=fresh();state.settings=s;save();renderHome();};
 
 /* ---------- 풀이 ---------- */
 let input="";
-function newQ(){
-  const P=state.placement,lv=P?P.lv:state.level;
+function newQ(skipIntro){
+  ensureToday();
+  const k=nextSkill(),s=SK(k);
+  if(!skipIntro&&k!==state.lastSkill)return showIntro(k);
+  state.lastSkill=k;
+  if(s.level==null&&!s.placement)s.placement={lv:4,hist:[]};
+  const P=s.placement,lv=P?P.lv:s.level;
   // 레벨 8 이상: 4문제 중 1개꼴로 1원 단위 금액을 섞어 "끝은 항상 0" 요령을 막음
   let gl=lv;
   if(!P&&lv>=8&&lv!==11&&lv!==12&&Math.random()<.25)gl=lv>=9?12:11;
-  state.cur={t:pickNum(gl,state.cur?.t,!P),lv,tries:0,rv:false};
+  state.cur={k,t:pickNum(k,gl,state.cur?.t,!P),lv,tries:0,rv:false,rp:0};
   input="";save();
-  if(state.track==="read"){$("rHeard").textContent="";$("rHeard").className="rheard";$("rbox").className="rbox";renderRead();return;}
+  if(k==="read"){$("rHeard").textContent="";$("rHeard").className="rheard";$("rbox").className="rbox";show("read");return;}
   $("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
-  renderPlay();setTimeout(speak,250);
+  show("play");setTimeout(speak,250);
+}
+// 듣고 쓰기 ↔ 보고 읽기가 바뀔 때 안내
+function showIntro(k){
+  const s=SK(k),test=s.level==null||(s.placement&&!s.placement.hist.length);
+  const R=k==="read";
+  $("placed").innerHTML=`<div class="card center intro">
+    <div class="iic">${R?"👀":"👂"}</div>
+    <h2>${state.today.count?"이번엔 ":""}${TNAME[k]}${state.today.count?"예요":"부터 해요"}</h2>
+    <div>${R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
+    ${test?`<div class="sub">먼저 실력 확인 ${TESTN}문제로 시작 레벨을 정해요.</div>`:""}
+    <button class="btn" type="button" id="introGo" style="width:100%">시작</button>
+    <button class="link" type="button" id="introHome">처음 화면으로</button></div>`;
+  show("placed");
+  $("introGo").onclick=()=>newQ(true);$("introHome").onclick=()=>show("home");
+}
+function progInfo(){
+  const c=state.cur,k=c?c.k:"listen",s=SK(k),P=s.placement,n=state.today.count,nm=SKILLS().length>1?TNAME[k]+" ":"";
+  if(P)return[`${nm}실력 확인 <b>${Math.min(P.hist.length+1,TESTN)}</b> / ${TESTN}`,P.hist.length/TESTN*100];
+  return[n<DAILY?`<b>${n+1}</b> / ${DAILY} · ${nm}레벨 ${s.level}`:`더 풀기 <b>${n+1-DAILY}</b> · ${nm}레벨 ${s.level}`,Math.min(n/DAILY,1)*100];
 }
 function renderPlay(){
-  const P=state.placement,t=state.today,c=state.cur;
-  if(P){$("pinfo").innerHTML=`실력 확인 <b>${Math.min(P.hist.length+1,TESTN)}</b> / ${TESTN}`;$("pbar").style.width=(P.hist.length/TESTN*100)+"%";}
-  else{const n=t.count;$("pinfo").innerHTML=n<DAILY?`<b>${n+1}</b> / ${DAILY} · 레벨 ${state.level}`:`더 풀기 <b>${n+1-DAILY}</b> · 레벨 ${state.level}`;
-    $("pbar").style.width=Math.min(n/DAILY,1)*100+"%";}
+  const c=state.cur,[info,w]=progInfo();
+  $("pinfo").innerHTML=info;$("pbar").style.width=w+"%";
   const g=guardian();
   $("speak").querySelector("span").textContent=c&&c.rp>=1?"천천히":"듣기";
   $("speak").hidden=g;$("gbox").hidden=!g;
@@ -870,7 +978,6 @@ function renderPlay(){
   const rv=$("rev");rv.hidden=!(c&&c.rv);
   if(c&&c.rv){
     const s=String(c.t);
-    const hasZero=/0/.test(s.replace(/0+$/,""));
     rv.innerHTML=`<div class="revtop"><span class="sub">정답</span><b class="big">${fmt(c.t)}원</b><span class="ko">${toKo(c.t)} 원</span></div>
       <div class="cols">${s.split("").map((d,i)=>`<div class="col${d==="0"?" z":""}"><span class="d">${d}</span><span class="p">${PLACE[s.length-1-i]}</span></div>`).join("")}</div>`;
   }
@@ -893,45 +1000,63 @@ function check(){
   if(busy||!input||!state.cur)return;
   const c=state.cur;
   if(+input===c.t)return onCorrect();
-  if(c.tries===0&&!c.rv)learn(c.t,input);
+  if(c.tries===0&&!c.rv)learn("listen",c.t,input);
   c.tries++;save();busy=true;
   const a=$("answer");a.className="answer no";a.classList.remove("shake");void a.offsetWidth;a.classList.add("shake");
   $("msg").textContent=c.rv?"정답을 보고 다시 써 보세요":guardian()?"보호자가 한 번 더 읽어 주세요":"다시 들어 보세요 🔊";
   setTimeout(()=>{input="";busy=false;a.className="answer";renderPlay();if(!c.rv)speak();},900);
   renderPlay();
 }
+/* 점수: 1 = 한 번에 맞힘 · 0.5 = 다시 듣기 2번 이상 하고 맞힘, 또는 1번 틀리고 고쳐 맞힘 · 0 = 2번 이상 틀림 / 정답 봄 */
+function scoreOf(c){
+  if(c.rv)return 0;
+  if(c.tries===0)return (c.rp||0)>=2?.5:1;
+  return c.tries===1?.5:0;
+}
 function onCorrect(){
-  const c=state.cur,first=c.tries===0&&!c.rv;busy=true;
-  $("answer").className="answer ok";
-  const lvBefore=state.level;
-  if(first)learn(c.t,null);
-  record(first,c.rv);
-  const up=!state.placement&&lvBefore!=null&&state.level>lvBefore;
+  const c=state.cur,k=c.k,first=c.tries===0&&!c.rv;busy=true;
+  if(k==="listen")$("answer").className="answer ok";
+  if(first)learn(k,c.t,null);
+  const ch=record(scoreOf(c));
   chime();
-  overlay(c.rv?(state.track==="read"?"잘 따라 읽었어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",up?`⭐ 레벨 업! 레벨 ${state.level}`:"");
-  setTimeout(()=>{hideOverlay();busy=false;advance();},up?2200:1400);
+  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"");
+  setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:1400);
 }
-function record(first,rv){
-  const P=state.placement,c=state.cur;
-  if(P){P.hist.push({lv:c.lv,ok:first});P.lv=Math.max(1,Math.min(MAXLV,c.lv+(first?1:-1)));}
+/* 레벨: 최근 10문제 점수 평균 0.85 이상 → 업, 0.5 이하 → 다운
+   레벨이 바뀐 뒤 6문제는 판단하지 않고, 다운은 하루 한 번까지 */
+function record(score){
+  const c=state.cur,k=c.k,s=SK(k),P=s.placement,t=state.today,tk=t[k];
+  t.count++;tk.n++;
+  if(c.tries===0&&!c.rv)tk.ok++;else if(score>0)tk.part++;
+  if(c.rv)tk.rv++;
+  if(tk.lv0==null&&s.level!=null)tk.lv0=s.level;
+  if(t.count===1){const n=new Date();state.habit=(state.habit||[]).concat(+(n.getHours()+n.getMinutes()/60).toFixed(2)).slice(-14);}
+  let change=0;
+  if(P){P.hist.push({lv:c.lv,s:score});P.lv=Math.max(1,Math.min(MAXLV,c.lv+(score===1?1:score===0?-1:0)));}
   else{
-    const t=state.today;t.count++;if(first)t.first++;if(rv)t.rv++;
-    if(t.count===1){const n=new Date();state.habit=(state.habit||[]).concat(+(n.getHours()+n.getMinutes()/60).toFixed(2)).slice(-14);}
-    if(first){t.up++;t.down=0;if(t.up>=3){t.up=0;if(state.level<MAXLV)state.level++;}}
-    else{t.down++;t.up=0;if(t.down>=2){t.down=0;if(state.level>1)state.level--;}}
-    state.days[t.date]={n:t.count,ok:t.first,rv:t.rv,lv:state.level,lv0:t.startLv,goal:DAILY};
+    s.win=(s.win||[]).concat(score).slice(-10);s.since=(s.since||0)+1;
+    if(s.since>=6){
+      const w=s.win.slice(-Math.min(10,s.since)),avg=w.reduce((a,b)=>a+b,0)/w.length;
+      if(avg>=.85&&s.level<MAXLV){s.level++;change=1;}
+      else if(avg<=.5&&s.level>1&&s.lastDown!==t.date){s.level--;s.lastDown=t.date;change=-1;}
+      if(change){s.since=0;s.win=[];}
+    }
   }
+  const day=state.days[t.date]||(state.days[t.date]={});
+  day.n=t.count;day.goal=DAILY;
+  day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level};
   state.cur=null;save();
+  return change;
 }
-function advance(){
-  const P=state.placement;
-  if(P){if(P.hist.length>=TESTN)return finishTest();return newQ();}
+function advance(k){
+  const s=SK(k);
+  if(s.placement&&s.placement.hist.length>=TESTN)return finishTest(k);
   const t=state.today;
-  if(t.count>=DAILY&&!t.doneShown){t.doneShown=true;save();scheduleReminders();return showDone();}
+  if(t.count>=DAILY&&!t.doneShown&&!SKILLS().some(placing)){t.doneShown=true;save();scheduleReminders();return showDone();}
   newQ();
 }
 $("showAns").onclick=()=>{if(!state.cur)return;state.cur.rv=true;input="";$("msg").textContent="";save();renderPlay();};
-$("skip").onclick=()=>{if(busy||!state.cur)return;record(false,true);advance();};
+$("skip").onclick=()=>{if(busy||!state.cur)return;const k=state.cur.k;record(0);advance(k);};
 $("speak").onclick=()=>{if(state.cur){state.cur.rp=(state.cur.rp||0)+1;save();renderPlay();}speak();};
 $("peek").onclick=()=>{const g=$("gtext");g.hidden=false;clearTimeout(g._t);g._t=setTimeout(()=>g.hidden=true,4000);};
 $("back").onclick=()=>{try{TTS?TTS.stop():speechSynthesis.cancel();}catch(e){}show("home");};
@@ -976,10 +1101,8 @@ function fitNum(){
   el.style.fontSize=Math.round(Math.max(28,Math.min(84,w/(len*.6))))+"px";
 }
 function renderRead(){
-  const P=state.placement,t=state.today,c=state.cur;
-  if(P){$("rInfo").innerHTML=`실력 확인 <b>${Math.min(P.hist.length+1,TESTN)}</b> / ${TESTN}`;$("rBar").style.width=(P.hist.length/TESTN*100)+"%";}
-  else{const n=t.count;$("rInfo").innerHTML=n<DAILY?`<b>${n+1}</b> / ${DAILY} · 레벨 ${state.level}`:`더 풀기 <b>${n+1-DAILY}</b> · 레벨 ${state.level}`;
-    $("rBar").style.width=Math.min(n/DAILY,1)*100+"%";}
+  const c=state.cur,[info,w]=progInfo();
+  $("rInfo").innerHTML=info;$("rBar").style.width=w+"%";
   $("rNum").textContent=c?Number(c.t).toLocaleString("ko-KR")+"원":"";fitNum();
   $("rKo").hidden=!(c&&c.rv);if(c)$("rKo").textContent=toKo(c.t)+" 원";
   $("rOk").hidden=!(c&&c.tries>0&&!listening);
@@ -988,7 +1111,7 @@ function renderRead(){
   $("mic").classList.toggle("on",listening);
   $("micTxt").textContent=listening?"듣고 있어요…":(c&&c.tries>0?"다시 읽기":"누르고 읽기");
 }
-function flushMiss(c){if(c&&c.miss!=null){learn(c.t,c.miss);c.miss=null;}}
+function flushMiss(c){if(c&&c.miss!=null){learn("read",c.t,c.miss);c.miss=null;}}
 async function doListen(){
   if(busy||!state.cur||!SPEECH)return;
   if(listening){try{await SPEECH.stop();}catch(e){}return;}
@@ -1030,7 +1153,7 @@ function bindRead(){
     $("rHeard").className="rheard";$("rHeard").textContent="";$("rbox").className="rbox ok";onCorrect();};
   $("rHint").onclick=()=>{const c=state.cur;if(!c)return;flushMiss(c);c.rv=true;save();
     $("rHeard").className="rheard";$("rHeard").textContent=guardian()?"보호자가 정답을 읽어 주세요. 그다음 따라 읽어 보세요.":"듣고 따라 읽어 보세요";renderRead();speak();};
-  $("rSkip").onclick=()=>{const c=state.cur;if(!c||busy||listening)return;flushMiss(c);record(false,true);advance();};
+  $("rSkip").onclick=()=>{const c=state.cur;if(!c||busy||listening)return;flushMiss(c);record(0);advance("read");};
   if(SPEECH){
     SPEECH.addListener("partial",d=>{if(listening&&d.text){$("rHeard").className="rheard";$("rHeard").textContent="… "+d.text;}});
     SPEECH.addListener("level",d=>{if(listening)$("micIc").style.transform=`scale(${1+Math.max(0,Math.min(10,d.level))*.05})`;});
@@ -1039,39 +1162,41 @@ function bindRead(){
 }
 
 /* ---------- 실력 확인 결과 ---------- */
-function finishTest(){
-  const P=state.placement,last=P.hist.slice(-4).map(h=>h.lv);
+function finishTest(k){
+  const s=SK(k),P=s.placement,last=P.hist.slice(-4).map(h=>h.lv);
   const lv=Math.max(1,Math.min(MAXLV,Math.floor(last.reduce((a,b)=>a+b,0)/last.length)));
-  const ok=P.hist.filter(h=>h.ok).length,wasNew=state.level==null;
-  state.level=lv;if(wasNew||state.firstLevel==null)state.firstLevel=lv;
-  state.placement=null;state.cur=null;
-  ensureToday();state.today.startLv=state.today.count?state.today.startLv:lv;save();
-  const L=LV[lv];
+  const ok=P.hist.filter(h=>h.s===1||h.ok===true).length;
+  s.level=lv;if(s.firstLevel==null)s.firstLevel=lv;
+  s.placement=null;s.win=[];s.since=0;
+  ensureToday();const tk=state.today[k];if(tk.lv0==null)tk.lv0=lv;
+  const day=state.days[state.today.date];if(day&&day[k]){if(day[k].lv0==null)day[k].lv0=lv;day[k].lv=lv;}
+  save();
+  const L=LV[lv],R=k==="read",ex=Number(L.ex).toLocaleString("ko-KR")+"원";
   $("placed").innerHTML=`<div class="card center">
-    <div class="sub">실력 확인 끝!</div>
+    <div class="sub">${SKILLS().length>1?TNAME[k]+" ":""}실력 확인 끝!</div>
     <div class="lvbadge" style="width:96px;height:96px"><b style="font-size:40px">${lv}</b><span>레벨</span></div>
     <h2>${L.nm}부터 시작해요</h2>
-    <div class="sub">${TESTN}문제 중 ${ok}문제를 한 번에 맞혔어요.<br>예) ${toKo(L.ex)} 원 → ${Number(L.ex).toLocaleString("ko-KR")}원</div>
-    <button class="btn" type="button" id="goDaily" style="width:100%">오늘 문제 시작</button>
+    <div class="sub">${TESTN}문제 중 ${ok}문제를 한 번에 맞혔어요.<br>예) ${R?`${ex} → "${toKo(L.ex)} 원"`:`${toKo(L.ex)} 원 → ${ex}`}</div>
+    <button class="btn" type="button" id="goDaily" style="width:100%">계속하기</button>
     <button class="link" type="button" id="goHome">처음 화면으로</button></div>`;
   show("placed");
-  $("goDaily").onclick=startPlay;$("goHome").onclick=()=>show("home");
+  $("goDaily").onclick=()=>{const t=state.today;if(t.count>=DAILY&&!t.doneShown&&!SKILLS().some(placing)){t.doneShown=true;save();scheduleReminders();return showDone();}newQ();};
+  $("goHome").onclick=()=>show("home");
 }
 
 /* ---------- 오늘 완료 ---------- */
 function showDone(){
-  const t=state.today,f=state.firstLevel;
+  const t=state.today;
+  const tile=(v,l)=>`<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  const per=k=>{const s=SK(k),tk=t[k];if(!tk.n)return "";const nm=SKILLS().length>1?TNAME[k]+" ":"";
+    return tile(`${tk.ok} / ${tk.n}`,nm+"한 번에 맞힘")+tile(`${tk.lv0??s.level} → ${s.level??"-"}`,nm+"레벨");};
+  const grow=SKILLS().map(k=>{const s=SK(k);return s.firstLevel!=null&&s.level>s.firstLevel?`${SKILLS().length>1?TNAME[k]+" ":""}처음 레벨 ${s.firstLevel} → 지금 <b>레벨 ${s.level}</b>`:"";}).filter(Boolean);
   $("done").innerHTML=`<div class="card center">
     <svg viewBox="0 0 150 150" width="110" height="110" aria-hidden="true"><circle class="ok-ring" cx="75" cy="75" r="56"/>
       <path class="ok-star" d="M75 38l10 21 23 3-17 16 4 23-20-11-20 11 4-23-17-16 23-3z" style="fill:var(--accent-ink)"/></svg>
     <div class="bigstamp">오늘의 퀘스트 완료!</div>
-    <div class="tiles" style="width:100%">
-      <div class="tile"><div class="v">${t.first} / ${DAILY}</div><div class="l">한 번에 맞힘</div></div>
-      <div class="tile"><div class="v">${t.rv}</div><div class="l">정답 보고 쓴 문제</div></div>
-      <div class="tile"><div class="v">${t.startLv??state.level} → ${state.level}</div><div class="l">오늘 레벨</div></div>
-      <div class="tile"><div class="v">${streak()}일</div><div class="l">연속 완료</div></div>
-    </div>
-    ${f!=null&&state.level>f?`<div class="grow">처음 레벨 ${f}에서 지금 <b>레벨 ${state.level}</b>까지 왔어요.</div>`:""}
+    <div class="tiles" style="width:100%">${SKILLS().map(per).join("")}${tile(streak()+"일","연속 완료")}${tile(t.listen.rv+t.read.rv,"정답 보고 푼 문제")}</div>
+    ${grow.length?`<div class="grow">${grow.join("<br>")}</div>`:""}
     <button class="btn" type="button" id="dHome" style="width:100%">처음 화면으로</button>
     <div class="acts" style="width:100%"><button class="btn2" type="button" id="dMore">더 풀기</button><button class="btn2" type="button" id="dStats">기록 보기</button></div>
   </div>`;
@@ -1080,33 +1205,40 @@ function showDone(){
 }
 
 /* ---------- 기록 ---------- */
+let statK="listen";
 function renderStats(){
-  $("statsTitle").textContent=SPEECH?"내 기록 · "+TNAME[state.track||"listen"]:"내 기록";
-  const keys=Object.keys(state.days).sort(),ds=keys.map(k=>state.days[k]);
+  const tabs=$("stTabs");tabs.hidden=!readOK();if(!readOK())statK="listen";
+  tabs.querySelectorAll("button").forEach(b=>{b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
+  const k=statK,s=SK(k);
+  const keys=Object.keys(state.days).filter(d=>state.days[d][k]&&state.days[d][k].n).sort(),ds=keys.map(d=>state.days[d][k]);
   const tot=ds.reduce((a,d)=>a+d.n,0),ok=ds.reduce((a,d)=>a+d.ok,0);
-  const best=Math.max(state.level||0,...ds.map(d=>d.lv||0));
+  const best=Math.max(s.level||0,...ds.map(d=>d.lv||0));
   $("tiles").innerHTML=`
-    <div class="tile"><div class="v">${state.level??"-"}</div><div class="l">지금 레벨${state.firstLevel!=null?` (처음 ${state.firstLevel})`:""}</div></div>
+    <div class="tile"><div class="v">${s.level??"-"}</div><div class="l">지금 레벨${s.firstLevel!=null?` (처음 ${s.firstLevel})`:""}</div></div>
     <div class="tile"><div class="v">${tot?Math.round(ok/tot*100):0}%</div><div class="l">한 번에 맞힌 비율</div></div>
     <div class="tile"><div class="v">${tot}</div><div class="l">지금까지 푼 문제</div></div>
     <div class="tile"><div class="v">${streak()}일</div><div class="l">연속 완료 · 최고 레벨 ${best||"-"}</div></div>`;
-  const wl=Object.entries(state.weak||{}).filter(([,w])=>w.n>=4)
-    .map(([t,w])=>({t,acc:Math.round((1-w.m/w.n)*100)}));
-  const weak=wl.filter(x=>x.acc<80).sort((a,b)=>a.acc-b.acc).slice(0,4);
-  const good=wl.filter(x=>x.acc>=90&&!x.t.startsWith("dig:")).sort((a,b)=>b.acc-a.acc).slice(0,3);
-  const row=(x,g)=>`<div class="wkrow"><div class="top"><span>${tagLabel(x.t)}</span><b>${x.acc}%</b></div><div class="wkbar${g?" g":""}"><i style="width:${x.acc}%"></i></div></div>`;
+  const wl=weakList(k);
+  const errs=wl.filter(x=>x.key.startsWith("err:")||x.key.startsWith("pair:")).filter(x=>x.acc<80).sort((a,b)=>a.acc-b.acc).slice(0,4);
+  const weak=wl.filter(x=>!x.key.startsWith("err:")&&!x.key.startsWith("pair:")&&x.acc<80).sort((a,b)=>a.acc-b.acc).slice(0,4);
+  const good=wl.filter(x=>x.acc>=90&&(x.key.startsWith("one:")||x.key.startsWith("zero:"))).sort((a,b)=>b.acc-a.acc).slice(0,3);
+  const row=(x,g,v)=>`<div class="wkrow"><div class="top"><span>${label(x.key)}</span><b>${v}%</b></div><div class="wkbar${g?" g":""}"><i style="width:${Math.max(4,v)}%"></i></div></div>`;
   $("weak").innerHTML=!wl.length?`<div class="empty">문제를 더 풀면 어떤 부분이 약한지 여기에 보여 드려요</div>`:
-    (weak.length?`<div class="wkh">더 연습할 부분 · 문제에 더 자주 나와요</div>${weak.map(x=>row(x,false)).join("")}`:`<div class="wkh">특별히 약한 부분이 없어요 👍</div>`)+
-    (good.length?`<div class="wkh">잘하는 부분</div>${good.map(x=>row(x,true)).join("")}`:"");
-  const recent=keys.slice(-30),lab=recent.map(k=>+k.slice(5,7)+"/"+ +k.slice(8));
+    (errs.length?`<div class="wkh">자주 하는 실수 · 이런 실수가 나온 비율</div>${errs.map(x=>row(x,false,Math.round(x.rate*100))).join("")}`:"")+
+    (weak.length?`<div class="wkh">더 연습할 금액 · 맞힌 비율</div>${weak.map(x=>row(x,false,x.acc)).join("")}`:"")+
+    (!errs.length&&!weak.length?`<div class="wkh">특별히 약한 부분이 없어요 👍</div>`:"")+
+    (good.length?`<div class="wkh">잘하는 부분 · 맞힌 비율</div>${good.map(x=>row(x,true,x.acc)).join("")}`:"")+
+    (errs.length||weak.length?`<div class="note">약한 부분이 들어간 금액이 10문제 중 4문제꼴로 더 나와요.</div>`:"");
+  const recent=keys.slice(-30),lab=recent.map(d=>+d.slice(5,7)+"/"+ +d.slice(8));
   if(!recent.length){
     $("lvChart").innerHTML=$("accChart").innerHTML=`<div class="empty">오늘 문제를 풀면 여기에 그래프가 생겨요</div>`;
     $("tbl").innerHTML=`<div class="empty">아직 기록이 없어요</div>`;return;
   }
-  $("lvChart").innerHTML=lineChart(recent.map(k=>state.days[k].lv),lab);
-  $("accChart").innerHTML=barChart(recent.map(k=>{const d=state.days[k];return d.n?Math.round(d.ok/d.n*100):0;}),lab);
-  $("tbl").innerHTML=`<table><thead><tr><th>날짜</th><th>푼 문제</th><th>한 번에</th><th>정답 봄</th><th>레벨</th></tr></thead><tbody>
-    ${keys.slice(-14).reverse().map(k=>{const d=state.days[k];return`<tr><td>${+k.slice(5,7)}월 ${+k.slice(8)}일${d.n>=(d.goal||20)?" ✔":""}</td><td>${d.n}</td><td>${d.ok}</td><td>${d.rv}</td><td>${d.lv0??"-"} → ${d.lv}</td></tr>`;}).join("")}
+  const lvs=recent.map(d=>state.days[d][k].lv).filter(v=>v!=null);
+  $("lvChart").innerHTML=lvs.length?lineChart(lvs,recent.filter(d=>state.days[d][k].lv!=null).map(d=>+d.slice(5,7)+"/"+ +d.slice(8))):`<div class="empty">실력 확인이 끝나면 레벨 그래프가 생겨요</div>`;
+  $("accChart").innerHTML=barChart(recent.map(d=>{const x=state.days[d][k];return x.n?Math.round(x.ok/x.n*100):0;}),lab);
+  $("tbl").innerHTML=`<table><thead><tr><th>날짜</th><th>푼 문제</th><th>한 번에</th><th>고쳐 맞힘</th><th>정답 봄</th><th>레벨</th></tr></thead><tbody>
+    ${keys.slice(-14).reverse().map(d=>{const day=state.days[d],x=day[k];return`<tr><td>${+d.slice(5,7)}월 ${+d.slice(8)}일${day.n>=(day.goal||20)?" ✔":""}</td><td>${x.n}</td><td>${x.ok}</td><td>${x.part||0}</td><td>${x.rv}</td><td>${x.lv0??"-"} → ${x.lv??"-"}</td></tr>`;}).join("")}
     </tbody></table>`;
 }
 const CW=320,CH=150,PL=30,PR=12,PT=12,PB=24;
