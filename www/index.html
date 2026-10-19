@@ -241,6 +241,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .intro{gap:14px}
 .intro .iic{font-size:56px;line-height:1}
 .intro>div:not(.sub){font-size:18px;line-height:1.6}
+.ovnote{font-size:17px;color:var(--muted);text-align:center;max-width:260px}
 </style>
 </head>
 <body>
@@ -1019,8 +1020,9 @@ function onCorrect(){
   if(first)learn(k,c.t,null);
   const ch=record(scoreOf(c));
   chime();
-  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"");
-  setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:1400);
+  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
+    k==="read"&&c.said?`들린 말: “${c.said}”`:"");
+  setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:(k==="read"?1900:1400));
 }
 /* 레벨: 최근 10문제 점수 평균 0.85 이상 → 업, 0.5 이하 → 다운
    레벨이 바뀐 뒤 6문제는 판단하지 않고, 다운은 하루 한 번까지 */
@@ -1063,36 +1065,43 @@ $("back").onclick=()=>{try{TTS?TTS.stop():speechSynthesis.cancel();}catch(e){}sh
 $("back2").onclick=()=>show("home");
 $("toStats").onclick=()=>show("stats");
 
-function overlay(title,sub){
+function overlay(title,sub,note){
   $("ovcard").innerHTML=`<svg viewBox="0 0 150 150" aria-hidden="true">
     <path class="ok-star" d="M22 30l4 9 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1z"/>
     <path class="ok-star" d="M128 18l3 7 7 1-5 5 1 7-6-4-6 4 1-7-5-5 7-1z"/>
     <path class="ok-star" d="M126 108l3 6 6 1-5 4 1 6-5-3-5 3 1-6-5-4 6-1z"/>
     <circle class="ok-ring" cx="75" cy="78" r="48"/>
     <path class="ok-check" d="M53 79l15 15 30-32"/></svg>
-    <div class="t">${title}</div>${sub?`<div class="lu">${sub}</div>`:""}`;
+    <div class="t">${title}</div>${sub?`<div class="lu">${sub}</div>`:""}${note?`<div class="ovnote"></div>`:""}`;
+  if(note)$("ovcard").querySelector(".ovnote").textContent=note;
   $("ov").hidden=false;
 }
 function hideOverlay(){$("ov").hidden=true;}
 
 /* ---------- 보고 읽기 ---------- */
 // "구천팔백십 원", "9810원", "9천 810원", "만 2천 원", "사백만 오백" → 숫자
+// 한국어로 금액을 말하는 순서대로일 때만 숫자로 바꿈. 순서가 틀리면 null
+//  · 천·백·십 앞에는 한 자리 숫자만 (927천 ✕, 92만 ⭕)
+//  · 만 아래에서는 천 → 백 → 십 순서로만 (이십칠천 ✕)
+//  · 숫자를 연달아 말하면 ✕ (구팔)
 function parseRun(r){
   const KD={"일":1,"이":2,"삼":3,"사":4,"오":5,"육":6,"륙":6,"칠":7,"팔":8,"구":9},U={"십":10,"백":100,"천":1000};
-  let total=0,sec=0,num=null,i=0,any=false;
+  let total=0,sec=0,num=null,i=0,any=false,last=10000,man=false;
   while(i<r.length){const ch=r[i];
-    if(ch>="0"&&ch<="9"){let j=i;while(j<r.length&&r[j]>="0"&&r[j]<="9")j++;num=+r.slice(i,j);i=j;any=true;continue;}
-    if(KD[ch]){num=KD[ch];any=true;}
-    else if(U[ch]){sec+=(num??1)*U[ch];num=null;any=true;}
-    else if(ch==="만"){sec+=num??0;total+=(sec||1)*10000;sec=0;num=null;any=true;}
+    if(ch>="0"&&ch<="9"){if(num!=null)return null;let j=i;while(j<r.length&&r[j]>="0"&&r[j]<="9")j++;num=+r.slice(i,j);i=j;any=true;continue;}
+    if(KD[ch]){if(num!=null)return null;num=KD[ch];any=true;}
+    else if(U[ch]){if(num!=null&&num>9)return null;if(U[ch]>=last)return null;sec+=(num??1)*U[ch];last=U[ch];num=null;any=true;}
+    else if(ch==="만"){if(man)return null;man=true;sec+=num??0;total+=(sec||1)*10000;sec=0;num=null;last=10000;any=true;}
     i++;}
+  if(num!=null&&num>=10&&last<10000&&String(num).length>String(last).length-1)return null; // 9천 9810 처럼 아래 자리가 넘침
   return any?total+sec+(num??0):null;
 }
+const NUMCH=/[0-9일이삼사오육륙칠팔구십백천만]/;
 function parseKoNum(str){
   const s=String(str).replace(/[,\s.]/g,"").replace(/(이요|이에요|예요|입니다|이다|요)$/,"").replace(/영|공/g,"0");
   const runs=s.match(/[0-9일이삼사오육륙칠팔구십백천만]+/g)||[];
   let best=null,bl=0;
-  for(const r of runs){const v=parseRun(r);if(v!=null&&r.length>bl){best=v;bl=r.length;}}
+  for(const r of runs)if(r.length>bl){bl=r.length;best=parseRun(r);}
   return best;
 }
 let listening=false;
@@ -1131,17 +1140,18 @@ function handleHeard(ms,err){
       :"잘 안 들렸어요. 버튼을 누르고 다시 읽어 주세요.";
     renderRead();return;
   }
-  const vals=ms.map(parseKoNum),hit=vals.indexOf(c.t);
-  if(hit>=0){
-    flushMiss(c);
-    h.className="rheard";h.innerHTML=`들린 말: <b>${ms[hit]}</b>`;$("rbox").className="rbox ok";
+  // 인식기가 가장 그럴듯하다고 고른 첫 번째 결과로만 판정 (숫자가 하나도 없을 때만 다음 후보를 봄)
+  let said=ms[0];if(!NUMCH.test(said)){const alt=ms.find(m=>NUMCH.test(m));if(alt)said=alt;}
+  const heard=parseKoNum(said);
+  if(heard===c.t){
+    flushMiss(c);c.said=said;
+    h.className="rheard";h.innerHTML=`들린 말: <b>${said}</b>`;$("rbox").className="rbox ok";
     renderRead();onCorrect();return;
   }
-  const heard=vals.find(v=>v!=null);
   if(c.tries===0&&!c.rv&&heard!=null)c.miss=String(heard);
   c.tries++;save();
   h.className="rheard no";
-  h.innerHTML=`이렇게 들렸어요: <b>${heard!=null?Number(heard).toLocaleString("ko-KR")+"원":ms[0]}</b><br>${c.rv?"정답을 듣고 따라 읽어 보세요":"다시 한 번 읽어 볼까요?"}`;
+  h.innerHTML=`이렇게 들렸어요: <b>${said}</b>${heard!=null?` (${Number(heard).toLocaleString("ko-KR")}원)`:""}<br>${c.rv?"정답을 듣고 따라 읽어 보세요":"다시 한 번 읽어 볼까요?"}`;
   const b=$("rbox");b.className="rbox no";b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");
   renderRead();
 }
