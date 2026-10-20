@@ -441,7 +441,8 @@ const TAGL={
   "err:zdrop":"빈 자리 0을 빠뜨려요 (3,050 → 350)",
   "err:concat":"들리는 대로 이어 붙여요 (1,100 → 1000100)",
   "err:shift":"자릿수가 하나 밀려요 (9,810 → 98,100)",
-  "err:order":"숫자 순서가 바뀌어요 (9,810 → 9,180)"
+  "err:order":"숫자 순서가 바뀌어요 (9,810 → 9,180)",
+  "err:unit":"자릿값을 헷갈려요 (구십이만 → 구백이만)"
 };
 function label(key){
   if(TAGL[key])return TAGL[key];
@@ -454,15 +455,27 @@ const OPP={
   "err:zdrop":n=>tagsOf(n).some(x=>x.t.startsWith("zero:")),
   "err:concat":n=>String(n).replace(/0/g,"").length>=2,
   "err:shift":n=>/0$/.test(String(n)),
-  "err:order":n=>new Set(String(n).replace(/0/g,"")).size>=2
+  "err:order":n=>new Set(String(n).replace(/0/g,"")).size>=2,
+  "err:unit":n=>String(n).replace(/0/g,"").length>=2
 };
 // 정답 t, 쓴 답 a (숫자 문자열) → 실수 유형
+// 말할 때의 조각: 927,000 → [920000, 7000] (구십이만 / 칠천)
+function piecesOf(n){
+  const m=Math.floor(n/10000),r=String(n%10000).padStart(4,"0"),out=[];
+  if(m)out.push(String(m*10000));
+  for(let i=0;i<4;i++)if(r[i]!=="0")out.push(String(+r[i]*10**(3-i)));
+  return out;
+}
 function classify(t,a){
   if(a===t)return null;
   const T=+t,A=+a;
   for(const m of [10,100,1000])if(A*m===T||A===T*m)return{type:"shift"};
   const nz=x=>x.replace(/0/g,"");
-  if(nz(a)===nz(t)&&a.length!==t.length)return{type:a.length<t.length?"zdrop":"concat"};
+  if(nz(a)===nz(t)){
+    if(a===piecesOf(T).join(""))return{type:"concat"};           // 천백 → 1000100
+    if(a.length<t.length&&tagsOf(T).some(x=>x.t.startsWith("zero:")))return{type:"zdrop"}; // 3,050 → 350
+    return{type:"unit"};                                          // 구십이만 → 구백이만 (927,000 → 9,027,000)
+  }
   if(a.length===t.length){
     const diff=[];for(let i=0;i<t.length;i++)if(a[i]!==t[i])diff.push(i);
     if(diff.length===1)return{type:"digit",diff,from:t[diff[0]],to:a[diff[0]]};
@@ -482,7 +495,7 @@ function learn(k,target,ans){
       if(cl.type==="zdrop")tg.filter(x=>x.t.startsWith("zero:")).forEach(x=>miss.set(x.t,1));
       if(cl.type==="digit"||cl.type==="multi")cl.diff.forEach(i=>tg.filter(x=>x.i===i).forEach(x=>miss.set(x.t,1)));
       if(cl.type==="len")tg.forEach(x=>miss.set(x.t,x.t.startsWith("dig:")?.5:1));
-      if(["zdrop","concat","shift","order"].includes(cl.type))miss.set("err:"+cl.type,1);
+      if(["zdrop","concat","shift","order","unit"].includes(cl.type))miss.set("err:"+cl.type,1);
       if(cl.type==="digit")pk=cl.from+">"+cl.to;
     }
   }
@@ -502,7 +515,7 @@ function weakList(k){
 }
 function hasFeat(key,n){
   if(key.startsWith("pair:"))return String(n).includes(key[5]);
-  if(key==="err:concat")return String(n).replace(/0/g,"").length>=3;
+  if(key==="err:concat"||key==="err:unit")return String(n).replace(/0/g,"").length>=3;
   if(OPP[key])return OPP[key](n);
   return tagsOf(n).some(x=>x.t===key);
 }
