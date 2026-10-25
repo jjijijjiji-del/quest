@@ -3,6 +3,9 @@ name: APK 빌드
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "scripts/tts/**"
+      - ".github/workflows/tts-samples.yml"
   workflow_dispatch:
 
 permissions:
