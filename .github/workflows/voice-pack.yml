@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         shard: [0, 1, 2, 3, 4, 5]
     steps:
@@ -31,6 +31,7 @@ jobs:
       - name: 소리 만들고 받아 적어 검사하기
         run: python scripts/tts/gen_pack.py voice shard ${{ matrix.shard }} 6
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: part-${{ matrix.shard }}
           path: |

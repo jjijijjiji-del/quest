@@ -6,7 +6,7 @@ Supertonic F1 목소리로 앱에서 쓸 소리를 모두 미리 만든다.
   x/  곱셈·덧셈 문제 읽기                          _d / _s
 index.json 에 레벨별 금액 묶음과 문장 문제 목록을 담는다.
 """
-import json, os, random, sys, subprocess
+import json, os, random, sys, subprocess, traceback
 import numpy as np, soundfile as sf
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "voice"
@@ -345,26 +345,38 @@ def main(shard, nshard):
     jobs, _, _ = all_jobs()
     mine = jobs[shard::nshard]
     report = []
+    errors = 0
     for i, (name, texts, sv, kind, val) in enumerate(mine):
-        ok, heard = False, ""
+        ok, heard, w = False, "", None
         for attempt in range(5):
-            sp = SPEED[sv] + [0, -.02, .02, -.04, .04][attempt]
-            parts = []
-            for j, t in enumerate(texts):
-                if j:
-                    parts.append(np.zeros(int(sr * (.7 if sv == "s" else .45)), dtype=np.float32))
-                parts.append(synth(t, sp))
-            w = np.concatenate(parts)
-            w = w / max(np.abs(w).max(), 1e-6) * 0.92
-            heard = hear(w)
-            if kind == "money":
-                ok = check_money(heard, val)
-            elif kind == "sent":
-                ok = check_sentence(heard, val)
-            else:
-                ok = check_math(heard, *val)
-            if ok:
-                break
+          try:
+              sp = SPEED[sv] + [0, -.02, .02, -.04, .04][attempt]
+              parts = []
+              for j, t in enumerate(texts):
+                  if j:
+                      parts.append(np.zeros(int(sr * (.7 if sv == "s" else .45)), dtype=np.float32))
+                  parts.append(synth(t, sp))
+              w = np.concatenate(parts)
+              w = w / max(np.abs(w).max(), 1e-6) * 0.92
+              heard = hear(w)
+              if kind == "money":
+                  ok = check_money(heard, val)
+              elif kind == "sent":
+                  ok = check_sentence(heard, val)
+              else:
+                  ok = check_math(heard, *val)
+              if ok:
+                  break
+          except Exception as e:
+            errors += 1
+            heard = f"ERROR {e!r}"
+            if errors <= 10:
+                print(f"::warning::{name} 시도 {attempt + 1}: {e!r}"[:900], flush=True)
+                traceback.print_exc()
+        if w is None or not len(w):
+            print(f"::warning::{name} 소리를 만들지 못함", flush=True)
+            report.append({"name": name, "ok": False, "tries": 5, "heard": heard, "text": " / ".join(texts)})
+            continue
         os.makedirs(os.path.dirname(f"{WAV}/{name}.wav"), exist_ok=True)
         sf.write(f"{WAV}/{name}.wav", w, sr)
         report.append({"name": name, "ok": ok, "tries": attempt + 1, "heard": heard, "text": " / ".join(texts)})
@@ -378,6 +390,7 @@ def main(shard, nshard):
     with open(f"report/shard{shard}.json", "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=0)
     bad = [r for r in report if not r["ok"]]
+    print(f"::notice::shard {shard}: {len(report)}개, 다시 만든 것 {sum(r['tries'] > 1 for r in report)}개, 검사 실패 {len(bad)}개, 오류 {errors}번", flush=True)
     print(f"shard {shard}: {len(report)} clips, retried {sum(r['tries'] > 1 for r in report)}, still failing {len(bad)}")
 
 
