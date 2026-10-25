@@ -6,13 +6,18 @@ on:
     paths-ignore:
       - "scripts/tts/**"
       - ".github/workflows/tts-samples.yml"
+      - ".github/workflows/voice-pack.yml"
   workflow_dispatch:
+  workflow_run:
+    workflows: ["음성 팩 만들기"]
+    types: [completed]
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -29,6 +34,16 @@ jobs:
 
       - name: 패키지 설치
         run: npm ci
+
+      - name: 음성 팩 넣기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download voice-pack -R ${{ github.repository }} -p voice-pack.zip -D /tmp; then
+            rm -rf www/voice && unzip -q /tmp/voice-pack.zip -d www && du -sh www/voice
+          else
+            echo "음성 팩이 아직 없어요 (기계 음성으로 동작)"
+          fi
 
       - name: 웹 코드를 안드로이드 프로젝트에 복사
         run: |
