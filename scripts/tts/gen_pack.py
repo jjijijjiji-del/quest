@@ -1,7 +1,7 @@
 """음성 팩 만들기 (GitHub Actions에서 실행)
 
 Supertonic F1 목소리로 앱에서 쓸 소리를 모두 미리 만든다.
-  m/  금액 (듣고 쓰기 · 보고 읽기 정답 듣기)      _d 0.75배(기본) / _s 0.7배+쉼표
+  m/  금액 (듣고 쓰기 · 보고 읽기 정답 듣기)      _d 0.75배(기본) / _s 0.7배 / _c 0.7배+쉼표
   s/  문장 속 금액 듣기                           _d / _s
   x/  곱셈·덧셈 문제 읽기                          _d / _s
 index.json 에 레벨별 금액 묶음과 문장 문제 목록을 담는다.
@@ -12,7 +12,7 @@ import numpy as np, soundfile as sf
 OUT = sys.argv[1] if len(sys.argv) > 1 else "voice"
 WAV = OUT + "_wav"
 VOICE = "F1"
-SPEED = {"n": 0.85, "d": 0.75, "s": 0.70}
+SPEED = {"d": 0.75, "s": 0.70, "c": 0.70}  # c = 0.7배 + 쉼표로 쉬어 가기
 rnd = random.Random(20261025)
 
 # ---------- 숫자 → 한글 (앱과 같은 규칙) ----------
@@ -292,18 +292,20 @@ def all_jobs():
     money = money_pools()
     for v in sorted({v for lv in money for v in money[lv]}):
         jobs.append((f"m/{v}_d", [f"{to_ko(v)} 원"], "d", "money", v))
-        jobs.append((f"m/{v}_s", [f"{to_ko_parts(v)} 원"], "s", "money", v))
+        jobs.append((f"m/{v}_s", [f"{to_ko(v)} 원"], "s", "money", v))
+        jobs.append((f"m/{v}_c", [f"{to_ko_parts(v)} 원"], "c", "money", v))
     sent = sentence_pools()
     for lv in sent:
         for q in sent[lv]:
-            for sv, slow in (("d", False), ("s", True)):
+            for sv, slow in (("d", False), ("s", False), ("c", True)):
                 body, ques = sentence_parts(q, slow)
                 jobs.append((f"s/{q['id']}_{sv}", [body] + ([ques] if ques else []), sv, "sent", q))
     for key, t, ts in math_items():
         a, b = int(key[4]), int(key[6])
         op = "곱하기" if key.startswith("mul") else "더하기"
         jobs.append((f"x/{key}_d", [t], "d", "math", (a, b, op)))
-        jobs.append((f"x/{key}_s", [ts], "s", "math", (a, b, op)))
+        jobs.append((f"x/{key}_s", [t], "s", "math", (a, b, op)))
+        jobs.append((f"x/{key}_c", [ts], "c", "math", (a, b, op)))
     return jobs, money, sent
 
 
@@ -354,7 +356,7 @@ def main(shard, nshard):
               parts = []
               for j, t in enumerate(texts):
                   if j:
-                      parts.append(np.zeros(int(sr * (.7 if sv == "s" else .45)), dtype=np.float32))
+                      parts.append(np.zeros(int(sr * (.7 if sv == "c" else .5)), dtype=np.float32))
                   parts.append(synth(t, sp))
               w = np.concatenate(parts)
               w = w / max(np.abs(w).max(), 1e-6) * 0.92

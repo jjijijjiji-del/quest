@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -29,7 +29,7 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
           pip install supertonic faster-whisper soundfile numpy
       - name: 소리 만들고 받아 적어 검사하기
-        run: python scripts/tts/gen_pack.py voice shard ${{ matrix.shard }} 6
+        run: python scripts/tts/gen_pack.py voice shard ${{ matrix.shard }} 8
       - uses: actions/upload-artifact@v4
         if: always()
         with:
