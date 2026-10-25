@@ -242,6 +242,45 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .intro .iic{font-size:56px;line-height:1}
 .intro>div:not(.sub){font-size:18px;line-height:1.6}
 .ovnote{font-size:17px;color:var(--muted);text-align:center;max-width:260px}
+
+/* ---- 덧셈·곱셈 ---- */
+:root{--c-add:#3f6fb5;--c-mul:#8a4fb0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--c-add:#7fa6e6;--c-mul:#c08ae0}}
+:root[data-theme="dark"]{--c-add:#7fa6e6;--c-mul:#c08ae0}
+#calc:not([hidden]){height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);
+  height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);gap:8px}
+.cbox{flex:none;position:relative;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 56px 18px 16px;min-height:96px;display:flex;align-items:center;justify-content:center}
+.cq{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.1}
+.cspk{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--key);font-size:20px}
+#calc .answer{justify-content:center;min-height:68px;padding:8px 14px;align-items:center}
+#calc .num{font-size:clamp(30px,10vw,44px)}
+#calc .pad{flex:1;min-height:0;grid-template-rows:repeat(4,1fr);gap:8px}
+#calc .k{padding:0;min-height:0;font-size:clamp(22px,7vw,30px)}
+#calc .k.sm{font-size:17px}
+.cgo{padding:0;font-size:20px}
+.cgo:disabled{opacity:.4}
+.dan{display:flex;flex-wrap:wrap;justify-content:center;gap:4px}
+.dan span{font-size:13px;font-variant-numeric:tabular-nums;background:var(--bg);border-radius:6px;padding:2px 6px}
+.dan span.hit{background:var(--gold);color:#1b1b1b;font-weight:800}
+.dots i.d-read.on{background:var(--gold)}
+.dots i.d-add.on{background:var(--c-add)}
+.dots i.d-mul.on{background:var(--c-mul)}
+.dots i.d-read,.dots i.d-add,.dots i.d-mul{outline:none}
+.lvr{display:flex;gap:12px;align-items:flex-start}
+.lvbadge.sm{width:48px;height:48px}
+.lvbadge.sm b{font-size:22px}
+.lvr .lvtxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.lvr .nm{font-size:17px;font-weight:700}
+.lvr .of{font-size:14px;color:var(--muted);font-weight:600}
+.lvr .grow{font-size:14px}
+.tabs.t4{grid-template-columns:1fr 1fr}
+.gg{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;font-variant-numeric:tabular-nums}
+.gg span{text-align:center;font-size:13px;padding:6px 0;border-radius:6px}
+.gg .gh{color:var(--muted);font-weight:700}
+.gg .gc{background:var(--soft);color:var(--muted)}
+.gg .gc.g{background:var(--good-bg);color:var(--good);font-weight:700}
+.gg .gc.y{background:color-mix(in srgb,var(--gold) 22%,var(--surface));color:var(--ink)}
+.gg .gc.r{background:var(--bad-bg);color:var(--bad);font-weight:700}
 </style>
 </head>
 <body>
@@ -265,6 +304,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
       <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
       <div class="row" id="dailyRow"><span class="lab">하루 문제 수</span></div>
+      <div class="row" id="partsRow"><span class="lab">오늘 문제에 넣을 것 · 고른 것끼리 문제 수를 똑같이 나눠요</span></div>
       <div class="row" id="styleRow"><span class="lab">읽는 방식 · 누르면 예시(9,810원)를 읽어 줘요</span></div>
       <div class="row" id="engineRow"><span class="lab">발음이 이상하면 폰의 음성 엔진이나 목소리를 바꿔 보세요</span><button class="chip" type="button" id="openTts">음성 엔진 설정 열기</button></div>
       <div class="row" id="rateRow"><span class="lab">읽는 속도</span></div>
@@ -273,6 +313,8 @@ body{margin:0;-webkit-user-select:none;user-select:none}
       <div class="row"><span class="lab">레벨 직접 바꾸기</span>
         <div class="stepper" data-k="listen"><span class="slab">듣고 쓰기</span><button type="button" data-d="-1" aria-label="듣고 쓰기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="듣고 쓰기 레벨 올리기">+</button></div>
         <div class="stepper" data-k="read"><span class="slab">보고 읽기</span><button type="button" data-d="-1" aria-label="보고 읽기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="보고 읽기 레벨 올리기">+</button></div>
+        <div class="stepper" data-k="add"><span class="slab">덧셈</span><button type="button" data-d="-1" aria-label="덧셈 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="덧셈 레벨 올리기">+</button></div>
+        <div class="stepper" data-k="mul"><span class="slab">곱셈</span><button type="button" data-d="-1" aria-label="곱셈 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="곱셈 레벨 올리기">+</button></div>
       </div>
       <div class="row"><span class="lab">기타</span>
         <button class="chip" type="button" id="retest">실력 확인 다시 하기</button>
@@ -355,17 +397,40 @@ body{margin:0;-webkit-user-select:none;user-select:none}
   </div>
 </section>
 
+<section id="calc" hidden>
+  <div class="ptop">
+    <button class="link" type="button" id="cBack">← 처음으로</button>
+    <div class="pinfo" id="cInfo"></div>
+  </div>
+  <div class="pbar"><i id="cBar"></i></div>
+  <div class="cbox">
+    <div class="cq" id="cq"></div>
+    <button class="cspk" type="button" id="cSpeak" aria-label="문제 듣기">🔊</button>
+  </div>
+  <div class="answer" id="cAns"><span class="num empty" id="cNum">?</span></div>
+  <div class="mrow">
+    <div class="msg" id="cMsg" aria-live="polite"></div>
+    <button class="mini" type="button" id="cShow" hidden>정답 보기</button>
+    <button class="mini primary" type="button" id="cSkip" hidden>다음 문제 →</button>
+  </div>
+  <div class="rev" id="cRev" hidden></div>
+  <div class="pad" id="cPad"></div>
+</section>
+
 <section id="placed" hidden></section>
 <section id="done" hidden></section>
 
 <section id="stats" hidden>
   <div class="ptop"><button class="link" type="button" id="back2">← 처음으로</button></div>
   <h1>내 기록</h1>
-  <div class="tabs" id="stTabs" hidden>
+  <div class="tabs t4" id="stTabs">
     <button type="button" data-t="listen">👂 듣고 쓰기</button>
     <button type="button" data-t="read">👀 보고 읽기</button>
+    <button type="button" data-t="add">➕ 덧셈</button>
+    <button type="button" data-t="mul">✖️ 곱셈</button>
   </div>
   <div class="tiles" id="tiles"></div>
+  <div class="card" id="ggCard" hidden><h2>구구단 표</h2><div class="note">초록은 5초 안에 잘 맞히는 것, 노랑은 느리거나 가끔 틀리는 것, 빨강은 자주 틀리는 것, 회색은 아직 안 나온 것이에요.</div><div id="gg" class="gg"></div></div>
   <div class="card chart"><h2>레벨 변화</h2><div id="lvChart"></div></div>
   <div class="card chart"><h2>한 번에 맞힌 비율</h2><div id="accChart"></div></div>
   <div class="card"><h2>약한 부분 · 잘하는 부분</h2><div id="weak" class="wk"></div></div>
@@ -448,6 +513,9 @@ function label(key){
   if(TAGL[key])return TAGL[key];
   if(key.startsWith("pair:")){const a=key[5],b=key[7];return `'${DN[+a]}(${a})'을 '${DN[+b]}(${b})'로 헷갈려요`;}
   if(key.startsWith("dig:"))return `숫자 '${DN[+key.slice(4)]}' (${key.slice(4)})`;
+  if(key.startsWith("fact:")){const m=key.slice(5).match(/^(\d+)([x+])(\d+)$/);if(m){const a=+m[1],b=+m[3];return m[2]==="x"?`${a} × ${b} = ${a*b}`:`${a} + ${b} = ${a+b}`;}}
+  if(key==="cat:carry")return "받아올림 있는 덧셈 (28 + 7)";
+  if(key==="cat:plain")return "받아올림 없는 덧셈 (23 + 5)";
   return key;
 }
 // 실수 유형을 판별할 기회가 있는 금액인지
@@ -530,6 +598,80 @@ function pickNum(k,gl,prev,targeted){
   return gen(gl,prev);
 }
 
+/* ---------- 덧셈 · 곱셈 ----------
+   두 가지 모두 8단계에서 멈춤: 마지막 단계도 보통 사람이 부담 없이 암산하는 수준까지만
+   "바로바로"가 목표라 시간도 봄 (화면에 타이머는 안 띄움) */
+const isMath=k=>k==="add"||k==="mul";
+const MLV={
+  add:[null,
+    {nm:"한 자리 + 한 자리 (합 10까지)",ex:[3,4],sec:5},
+    {nm:"한 자리 + 한 자리 (받아올림)",ex:[8,7],sec:5},
+    {nm:"두 자리 + 한 자리",ex:[23,5],sec:7},
+    {nm:"두 자리 + 한 자리 (받아올림)",ex:[28,7],sec:7},
+    {nm:"몇십 + 몇십",ex:[30,40],sec:7},
+    {nm:"두 자리 + 두 자리",ex:[34,25],sec:10},
+    {nm:"두 자리 + 두 자리 (받아올림)",ex:[38,47],sec:12},
+    {nm:"금액 더하기 (몇백 원 단위)",ex:[3500,2800],sec:12}],
+  mul:[null,
+    {nm:"구구단 2단·5단",ex:[2,7],sec:5},
+    {nm:"구구단 2~5단",ex:[4,6],sec:5},
+    {nm:"구구단 2~6단",ex:[6,7],sec:5},
+    {nm:"구구단 7·8·9단",ex:[7,8],sec:5},
+    {nm:"구구단 전체",ex:[8,6],sec:5},
+    {nm:"몇십 × 한 자리",ex:[40,7],sec:8},
+    {nm:"십몇 × 한 자리",ex:[12,4],sec:10},
+    {nm:"두 자리 × 한 자리",ex:[23,4],sec:15}]
+};
+const MAXOF=k=>isMath(k)?8:MAXLV;
+const TN=k=>isMath(k)?6:TESTN;
+const OPS={add:"+",mul:"×"};
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const ansOf=(k,a,b)=>k==="add"?a+b:a*b;
+const carryOf=(a,b)=>(a%10)+(b%10)>=10;
+// 구구단·한 자리 덧셈은 '사실' 하나하나를 따로 기록 (7×8과 8×7은 같은 것으로)
+const factKey=(k,a,b)=>k==="mul"?(a<=9&&b<=9?`fact:${Math.min(a,b)}x${Math.max(a,b)}`:null):(a<=9&&b<=9?`fact:${Math.min(a,b)}+${Math.max(a,b)}`:null);
+function genMath(k,lv){
+  if(k==="mul"){
+    const dans=[null,[2,5],[2,3,4,5],[2,3,4,5,6],[7,8,9],[2,3,4,5,6,7,8,9]][lv];
+    if(dans){const a=dans[ri(0,dans.length-1)],b=ri(2,9);return lv===5&&Math.random()<.5?[b,a]:[a,b];}
+    if(lv===6)return[ri(2,9)*10,ri(2,9)];
+    if(lv===7)return[ri(11,19),ri(2,9)];
+    let a;do a=ri(21,59);while(a%10===0);return[a,ri(2,6)];
+  }
+  for(let i=0;i<200;i++){
+    let a,b;
+    if(lv===1){a=ri(1,9);b=ri(1,9);if(a+b>10)continue;}
+    else if(lv===2){a=ri(2,9);b=ri(2,9);if(a+b<11)continue;}
+    else if(lv===3||lv===4){a=ri(11,89);b=ri(1,9);if(a%10===0||carryOf(a,b)!==(lv===4))continue;}
+    else if(lv===5){a=ri(1,9)*10;b=ri(1,9)*10;}
+    else if(lv===6){a=ri(11,89);b=ri(11,89);if(carryOf(a,b)||a+b>=100||a%10===0||b%10===0)continue;}
+    else if(lv===7){a=ri(11,89);b=ri(11,89);if(!carryOf(a,b)||a%10===0||b%10===0)continue;}
+    else{a=ri(10,79)*100;b=ri(10,49)*100;if(a%1000===0&&b%1000===0)continue;}
+    return[a,b];
+  }
+  return MLV.add[lv].ex.slice();
+}
+// 약한 구구단이 있으면 10문제 중 4문제꼴로 그 구구단을 냄
+function pickMath(k,lv,prev){
+  const s=SK(k),W=s.weak||{},weakKeys=Object.entries(W).filter(([key,w])=>key.startsWith("fact:")&&w.n>=3&&w.m/w.n>=.3).map(([key])=>key);
+  let best=null;
+  for(let i=0;i<300;i++){
+    const q=genMath(k,lv);
+    if(prev&&q[0]===prev[0]&&q[1]===prev[1])continue;
+    if(!best)best=q;
+    if(!weakKeys.length||i===0&&Math.random()>=.4)return q;
+    if(weakKeys.includes(factKey(k,q[0],q[1])))return q;
+  }
+  return best||genMath(k,lv);
+}
+function learnMath(c,score){
+  const s=SK(c.k),W=s.weak||(s.weak={}),miss=score>=1?0:score>0?.5:1;
+  const keys=[factKey(c.k,c.a,c.b)];
+  if(c.k==="add"&&c.lv>=3)keys.push(carryOf(c.a,c.b)?"cat:carry":"cat:plain");
+  keys.filter(Boolean).forEach(key=>{const w=W[key]||(W[key]={n:0,m:0});w.n=decay(w.n,1);w.m=decay(w.m,miss);});
+}
+const mathText=(k,a,b)=>`${Number(a).toLocaleString("ko-KR")} ${OPS[k]} ${Number(b).toLocaleString("ko-KR")}`;
+
 function gen(lv,prev){
   const L=LV[lv];
   for(let i=0;i<200;i++){
@@ -552,11 +694,13 @@ function gen(lv,prev){
    실력(레벨·약점)은 듣고 쓰기 / 보고 읽기 따로, 하루 문제는 하나로 이어서 */
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-const TNAME={listen:"듣고 쓰기",read:"보고 읽기"};
+const TNAME={listen:"듣고 쓰기",read:"보고 읽기",add:"덧셈",mul:"곱셈"};
+const TICON={listen:"👂",read:"👀",add:"➕",mul:"✖️"};
+const ALLK=["listen","read","add","mul"];
 const freshSkill=()=>({level:null,firstLevel:null,placement:null,weak:{},pair:{},seen:{},win:[],since:0,lastDown:null});
 const freshTk=()=>({n:0,ok:0,part:0,rv:0,lv0:null});
-function fresh(){return{v:3,updatedAt:0,skills:{listen:freshSkill(),read:freshSkill()},cur:null,today:null,days:{},lastSkill:null,
-  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:20,remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
+function fresh(){return{v:3,updatedAt:0,skills:{listen:freshSkill(),read:freshSkill(),add:freshSkill(),mul:freshSkill()},cur:null,today:null,days:{},lastSkill:null,
+  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:20,parts:{listen:true,read:true,add:true,mul:true},remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
 // 예전 저장 형식(v2: 듣고 쓰기/보고 읽기를 탭으로 따로 풀던 때)을 옮겨 옴
 function migrate(r){
   const st=fresh();st.settings=Object.assign(st.settings,r.settings||{});st.habit=r.habit||[];
@@ -572,7 +716,7 @@ function migrate(r){
     }
   }
   const d=dkey(),day=st.days[d];
-  if(day){st.today={date:d,count:day.n,doneShown:day.n>=(day.goal||20),listen:freshTk(),read:freshTk()};
+  if(day){st.today={date:d,count:day.n,doneShown:day.n>=(day.goal||20),listen:freshTk(),read:freshTk(),add:freshTk(),mul:freshTk()};
     for(const k of ["listen","read"])if(day[k])Object.assign(st.today[k],{n:day[k].n,ok:day[k].ok,rv:day[k].rv,lv0:day[k].lv0});}
   return st;
 }
@@ -580,7 +724,8 @@ let state=fresh();
 try{const r=JSON.parse(localStorage.getItem(KEY)||"null");
   if(r&&r.v===3)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});
   else if(r&&r.v===2)state=migrate(r);
-  ["listen","read"].forEach(k=>state.skills[k]=Object.assign(freshSkill(),state.skills[k]||{}));
+  ALLK.forEach(k=>state.skills[k]=Object.assign(freshSkill(),state.skills[k]||{}));
+  state.settings.parts=Object.assign({listen:true,read:true,add:true,mul:true},state.settings.parts||{});
 }catch(e){}
 (function(){const st=state.settings;if(st.remind!==undefined){if(st.remind<0)st.remindMode="off";else{st.remindMode="manual";st.reminds=[st.remind];}delete st.remind;}})();
 function save(){
@@ -800,16 +945,17 @@ function chime(){
 /* ---------- 화면 전환 ---------- */
 const $=id=>document.getElementById(id);
 let screen="home";
-function show(s){screen=s;["home","play","placed","done","stats","rec","read"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
-  if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();}
+function show(s){screen=s;["home","play","placed","done","stats","rec","read","calc"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
+  if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();if(s==="calc")renderCalc();}
 const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Number(v));
 
 function ensureToday(){
   const d=dkey();
   if(!state.today||state.today.date!==d){
-    state.today={date:d,count:0,doneShown:false,listen:freshTk(),read:freshTk()};
+    state.today={date:d,count:0,doneShown:false,listen:freshTk(),read:freshTk(),add:freshTk(),mul:freshTk()};
     const c=state.cur;if(c&&!SK(c.k).placement)state.cur=null;
   }
+  ALLK.forEach(k=>{if(!state.today[k])state.today[k]=freshTk();});
 }
 function streak(){
   let n=0;const d=new Date();
@@ -819,32 +965,37 @@ function streak(){
   return n;
 }
 const readOK=()=>!!SPEECH;
-const SKILLS=()=>readOK()?["listen","read"]:["listen"];
-const half=()=>Math.ceil(DAILY/2);
-// 하루 문제: 듣고 쓰기 절반을 먼저, 그다음 보고 읽기 나머지. 다 풀고 더 풀면 5문제씩 번갈아
+const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&(k!=="read"||readOK()));return ks.length?ks:["listen"];};
+// 하루 문제를 고른 항목들에 고르게 나눔 (앞 항목부터 하나씩 더)
+function quotas(){const ks=SKILLS(),b=Math.floor(DAILY/ks.length),r=DAILY%ks.length,q={};ks.forEach((k,i)=>q[k]=b+(i<r?1:0));return q;}
+// 순서대로: 듣고 쓰기 → 보고 읽기 → 덧셈 → 곱셈. 다 풀고 더 풀면 5문제씩 돌아가며
 function skillFor(){
-  if(!readOK())return "listen";
-  const t=state.today;
-  if(t.listen.n<half())return "listen";
-  if(t.read.n<DAILY-half())return "read";
-  return Math.floor((t.count-DAILY)/5)%2===0?"listen":"read";
+  const t=state.today,q=quotas(),ks=SKILLS();
+  for(const k of ks)if(t[k].n<q[k])return k;
+  return ks[Math.floor(Math.max(0,t.count-DAILY)/5)%ks.length];
 }
-const placing=k=>{const p=SK(k).placement;return !!p&&p.hist.length>0&&p.hist.length<TESTN;};
+const placing=k=>{const p=SK(k).placement;return !!p&&p.hist.length>0&&p.hist.length<TN(k);};
 function nextSkill(){
   for(const k of SKILLS())if(placing(k))return k; // 실력 확인은 끝날 때까지 이어서
   return skillFor();
 }
 
 /* ---------- 홈 ---------- */
+function lvName(k,lv){return isMath(k)?MLV[k][lv].nm:LV[lv].nm;}
+function lvEx(k,lv){
+  if(isMath(k)){const [a,b]=MLV[k][lv].ex;return `${mathText(k,a,b)} = ${Number(ansOf(k,a,b)).toLocaleString("ko-KR")}`;}
+  const e=LV[lv].ex,n=Number(e).toLocaleString("ko-KR")+"원";
+  return k==="read"?`${n} → "${toKo(e)} 원"`:`${toKo(e)} 원 → ${n}`;
+}
 function lvBlock(k){
-  const s=SK(k),nm=SKILLS().length>1?TNAME[k]+" · ":"";
-  if(s.level==null)return `<div class="lv"><div class="lvbadge dim"><b>?</b><span>레벨</span></div>
-    <div class="lvtxt"><div class="nm">${nm}실력 확인 전</div><div class="sub">처음 풀 때 ${TESTN}문제로 시작 레벨을 정해요</div></div></div>`;
-  const L=LV[s.level],f=s.firstLevel;
-  return `<div class="lv"><div class="lvbadge"><b>${s.level}</b><span>레벨</span></div>
-    <div class="lvtxt"><div class="nm">${nm}${L.nm}</div><div class="sub">예) ${k==="read"?`${Number(L.ex).toLocaleString("ko-KR")}원 → "${toKo(L.ex)} 원"`:`${toKo(L.ex)} 원 → ${Number(L.ex).toLocaleString("ko-KR")}원`}</div></div></div>
-    <div class="meter">${Array.from({length:MAXLV},(_,i)=>`<i class="${i+1===f&&f<s.level?"start":i<s.level?"on":""}"></i>`).join("")}</div>
-    ${f!=null&&s.level>f?`<div class="grow">처음 레벨 ${f} → 지금 <b>레벨 ${s.level}</b>. ${s.level-f}단계 올라왔어요!</div>`:""}`;
+  const s=SK(k),M=MAXOF(k),nm=`${TICON[k]} ${TNAME[k]}`;
+  if(s.level==null)return `<div class="lvr"><div class="lvbadge sm dim"><b>?</b></div>
+    <div class="lvtxt"><div class="nm">${nm}</div><div class="sub">처음 풀 때 ${TN(k)}문제로 시작 레벨을 정해요</div></div></div>`;
+  const f=s.firstLevel;
+  return `<div class="lvr"><div class="lvbadge sm"><b>${s.level}</b></div>
+    <div class="lvtxt"><div class="nm">${nm} <span class="of">레벨 ${s.level} / ${M}</span></div><div class="sub">${lvName(k,s.level)} · 예) ${lvEx(k,s.level)}</div>
+    <div class="meter">${Array.from({length:M},(_,i)=>`<i class="${i+1===f&&f<s.level?"start":i<s.level?"on":""}"></i>`).join("")}</div>
+    ${f!=null&&s.level>f?`<div class="grow">처음 레벨 ${f} → 지금 <b>레벨 ${s.level}</b></div>`:""}</div></div>`;
 }
 function renderHome(){
   ensureToday();
@@ -853,13 +1004,13 @@ function renderHome(){
   const qc=$("questCard"),lc=$("levelCard"),t=state.today,c=Math.min(t.count,DAILY),fin=t.count>=DAILY;
   const first=SKILLS().some(k=>SK(k).level==null);
   qc.innerHTML=`<div class="qhead"><h2>오늘의 문제</h2><div class="qcount">${c}<small> / ${DAILY}</small></div></div>
-    <div class="dots" style="grid-template-columns:repeat(${Math.min(DAILY,15)},1fr)">${Array.from({length:DAILY},(_,i)=>`<i class="${i<c?"on":""}${readOK()&&i>=half()?" r":""}"></i>`).join("")}</div>
-    ${readOK()?`<div class="sub">👂 듣고 쓰기 ${half()}문제 → 👀 보고 읽기 ${DAILY-half()}문제를 이어서 풀어요</div>`:""}
-    ${first&&!t.count?`<div class="sub">처음 하는 부분은 실력 확인 ${TESTN}문제부터 시작해요</div>`:""}
-    ${fin?`<div class="stamp">✔ 오늘 퀘스트 완료! 한 번에 맞힌 문제 ${t.listen.ok+t.read.ok}개</div>`:""}
+    <div class="dots" style="grid-template-columns:repeat(${Math.min(DAILY,15)},1fr)">${(()=>{const q=quotas(),out=[];SKILLS().forEach(k=>{for(let i=0;i<q[k];i++)out.push(`<i class="d-${k}${i<Math.min(t[k].n,q[k])?" on":""}"></i>`);});return out.join("");})()}</div>
+    ${SKILLS().length>1?`<div class="sub">${SKILLS().map(k=>`${TICON[k]} ${TNAME[k]} ${quotas()[k]}`).join(" → ")}</div>`:""}
+    ${first&&!t.count?`<div class="sub">처음 하는 부분은 짧은 실력 확인부터 시작해요</div>`:""}
+    ${fin?`<div class="stamp">✔ 오늘 퀘스트 완료! 한 번에 맞힌 문제 ${ALLK.reduce((a,k)=>a+t[k].ok,0)}개</div>`:""}
     <button class="btn" type="button" id="startBtn">${fin?"더 풀어 보기":t.count||state.cur?"이어서 풀기":"오늘 문제 시작"}</button>
     ${streak()?`<div class="streak">🔥 <span><b>${streak()}</b>일 연속 완료</span></div>`:""}`;
-  lc.innerHTML=SKILLS().map(lvBlock).join(`<hr class="sep">`)+`<div class="note">최근 문제를 대부분 한 번에 맞히면 레벨이 올라가요.</div>`;
+  lc.innerHTML=SKILLS().map(lvBlock).join(`<hr class="sep">`)+`<div class="note">최근 문제를 대부분 한 번에 맞히면 레벨이 올라가요.${SKILLS().some(isMath)?" 덧셈·곱셈은 빨리 풀수록 점수가 높아요.":""}</div>`;
   $("startBtn").onclick=startPlay;
   renderSettings();
 }
@@ -867,7 +1018,7 @@ function startPlay(){
   ensureToday();
   if(LN&&!state.settings.askedNotify){state.settings.askedNotify=true;save();askNotify().then(scheduleReminders);}
   const c=state.cur;
-  if(c){show(c.k==="read"?"read":"play");if(c.k!=="read")speak();return;}
+  if(c){if(isMath(c.k)){c.t0=Date.now();show("calc");return;}show(c.k==="read"?"read":"play");if(c.k!=="read")speak();return;}
   newQ();
 }
 
@@ -918,7 +1069,11 @@ function renderSettings(){
    b.textContent=n===0?"🎙 목소리 녹음하기":n<CLIPS.length?`🎙 녹음 이어 하기 (${n}/${CLIPS.length})`:"🎙 녹음 다시 듣기·고치기";
    b.onclick=()=>openRec();r.appendChild(b);}
   if(LN)renderRemind();else $("remindRow").hidden=true;
-  chips("dailyRow",[[10,"10개"],[15,"15개"],[20,"20개"],[30,"30개"]],"daily");
+  chips("dailyRow",[[10,"10개"],[15,"15개"],[20,"20개"],[30,"30개"],[40,"40개"]],"daily");
+  {const row=$("partsRow");row.querySelectorAll(".chip").forEach(c=>c.remove());const P=state.settings.parts;
+   ALLK.filter(k=>k!=="read"||readOK()).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
+     b.textContent=`${TICON[k]} ${TNAME[k]}`;b.setAttribute("aria-pressed",P[k]!==false);
+     b.onclick=()=>{const on=P[k]!==false;if(on&&SKILLS().length<=1)return;P[k]=!on;save();renderHome();};row.appendChild(b);});}
   chips("styleRow",[["num","자연스럽게 (숫자로)"],["spaced","또박또박 (띄어서)"],["ko","한글 그대로"]],"readStyle");
   $("styleRow").querySelectorAll(".chip").forEach(b=>{const f=b.onclick;b.onclick=()=>{f();if(!guardian())sayRaw(textFor(9810),state.settings.rate);};});
   chips("rateRow",TTS?[[.45,"아주 천천히"],[.6,"천천히"],[.8,"보통"]]:[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
@@ -926,7 +1081,7 @@ function renderSettings(){
   chips("sfxRow",[[true,"켜기"],[false,"끄기"]],"sfx");
   document.querySelectorAll(".stepper[data-k]").forEach(el=>{const k=el.dataset.k,s=SK(k);
     el.hidden=k==="read"&&!readOK();el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
-    el.querySelectorAll("button").forEach(b=>b.onclick=()=>{if(s.level==null)return;const v=s.level+ +b.dataset.d;if(v<1||v>MAXLV)return;
+    el.querySelectorAll("button").forEach(b=>b.onclick=()=>{if(s.level==null)return;const v=s.level+ +b.dataset.d;if(v<1||v>MAXOF(k))return;
       s.level=v;s.win=[];s.since=0;save();renderHome();});});
   $("wipe").textContent=wipeArmed?"정말 지울까요? 한 번 더 누르세요":"기록 모두 지우기";
   renderSync();
@@ -937,7 +1092,7 @@ function renderSync(){
   else if(TTS&&ttsOk===false)t+=" 한국어 음성이 설치되어 있지 않아요. 폰 설정 → 텍스트 음성 변환에서 Google 음성 엔진의 한국어 음성을 받아 주세요.";
   $("syncNote").textContent=t;
 }
-$("retest").onclick=()=>{SKILLS().forEach(k=>{const s=SK(k);s.placement={lv:s.level||4,hist:[]};});state.cur=null;state.lastSkill=null;save();startPlay();};
+$("retest").onclick=()=>{SKILLS().forEach(k=>{const s=SK(k);s.placement={lv:s.level||startLv(k),hist:[]};});state.cur=null;state.lastSkill=null;save();startPlay();};
 $("wipe").onclick=()=>{if(!wipeArmed){wipeArmed=true;renderSettings();setTimeout(()=>{wipeArmed=false;renderSettings();},4000);return;}
   wipeArmed=false;const s=state.settings;state=fresh();state.settings=s;save();renderHome();};
 
@@ -948,8 +1103,13 @@ function newQ(skipIntro){
   const k=nextSkill(),s=SK(k);
   if(!skipIntro&&k!==state.lastSkill)return showIntro(k);
   state.lastSkill=k;
-  if(s.level==null&&!s.placement)s.placement={lv:4,hist:[]};
+  if(s.level==null&&!s.placement)s.placement={lv:startLv(k),hist:[]};
   const P=s.placement,lv=P?P.lv:s.level;
+  if(isMath(k)){
+    const [a,b]=pickMath(k,lv,state.cur&&state.cur.k===k?[state.cur.a,state.cur.b]:null);
+    state.cur={k,a,b,t:ansOf(k,a,b),lv,tries:0,rv:false,t0:Date.now()};
+    input="";save();$("cMsg").textContent="";$("cAns").className="answer";show("calc");return;
+  }
   // 레벨 8 이상: 4문제 중 1개꼴로 1원 단위 금액을 섞어 "끝은 항상 0" 요령을 막음
   let gl=lv;
   if(!P&&lv>=8&&lv!==11&&lv!==12&&Math.random()<.25)gl=lv>=9?12:11;
@@ -960,14 +1120,15 @@ function newQ(skipIntro){
   show("play");setTimeout(speak,250);
 }
 // 듣고 쓰기 ↔ 보고 읽기가 바뀔 때 안내
+const startLv=k=>k==="mul"?1:k==="add"?2:4;
 function showIntro(k){
   const s=SK(k),test=s.level==null||(s.placement&&!s.placement.hist.length);
   const R=k==="read";
   $("placed").innerHTML=`<div class="card center intro">
-    <div class="iic">${R?"👀":"👂"}</div>
-    <h2>${state.today.count?"이번엔 ":""}${TNAME[k]}${state.today.count?"예요":"부터 해요"}</h2>
-    <div>${R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
-    ${test?`<div class="sub">먼저 실력 확인 ${TESTN}문제로 시작 레벨을 정해요.</div>`:""}
+    <div class="iic">${TICON[k]}</div>
+    <h2>${state.today.count?"이번엔 ":""}${TNAME[k]}${state.today.count?(isMath(k)?"이에요":"예요"):"부터 해요"}</h2>
+    <div>${k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
+    ${test?`<div class="sub">먼저 실력 확인 ${TN(k)}문제로 시작 레벨을 정해요.</div>`:""}
     <button class="btn" type="button" id="introGo" style="width:100%">시작</button>
     <button class="link" type="button" id="introHome">처음 화면으로</button></div>`;
   show("placed");
@@ -975,7 +1136,7 @@ function showIntro(k){
 }
 function progInfo(){
   const c=state.cur,k=c?c.k:"listen",s=SK(k),P=s.placement,n=state.today.count,nm=SKILLS().length>1?TNAME[k]+" ":"";
-  if(P)return[`${nm}실력 확인 <b>${Math.min(P.hist.length+1,TESTN)}</b> / ${TESTN}`,P.hist.length/TESTN*100];
+  if(P)return[`${nm}실력 확인 <b>${Math.min(P.hist.length+1,TN(k))}</b> / ${TN(k)}`,P.hist.length/TN(k)*100];
   return[n<DAILY?`<b>${n+1}</b> / ${DAILY} · ${nm}레벨 ${s.level}`:`더 풀기 <b>${n+1-DAILY}</b> · ${nm}레벨 ${s.level}`,Math.min(n/DAILY,1)*100];
 }
 function renderPlay(){
@@ -1024,16 +1185,18 @@ function check(){
 /* 점수: 1 = 한 번에 맞힘 · 0.5 = 다시 듣기 2번 이상 하고 맞힘, 또는 1번 틀리고 고쳐 맞힘 · 0 = 2번 이상 틀림 / 정답 봄 */
 function scoreOf(c){
   if(c.rv)return 0;
+  if(isMath(c.k)){const lim=MLV[c.k][c.lv].sec*1000;if(c.tries===0)return (c.ms||0)<=lim?1:.5;return c.tries===1?.5:0;}
   if(c.tries===0)return (c.rp||0)>=2?.5:1;
   return c.tries===1?.5:0;
 }
 function onCorrect(){
   const c=state.cur,k=c.k,first=c.tries===0&&!c.rv;busy=true;
   if(k==="listen")$("answer").className="answer ok";
-  if(first)learn(k,c.t,null);
+  if(isMath(k))$("cAns").className="answer ok";
+  if(first&&!isMath(k))learn(k,c.t,null);
   const ch=record(scoreOf(c));
   chime();
-  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
+  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":isMath(k)?"잘했어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
     k==="read"&&c.said?`들린 말: “${c.said}”`:"");
   setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:(k==="read"?1900:1400));
 }
@@ -1046,13 +1209,14 @@ function record(score){
   if(c.rv)tk.rv++;
   if(tk.lv0==null&&s.level!=null)tk.lv0=s.level;
   if(t.count===1){const n=new Date();state.habit=(state.habit||[]).concat(+(n.getHours()+n.getMinutes()/60).toFixed(2)).slice(-14);}
-  let change=0;
-  if(P){P.hist.push({lv:c.lv,s:score});P.lv=Math.max(1,Math.min(MAXLV,c.lv+(score===1?1:score===0?-1:0)));}
+  let change=0;const M=MAXOF(k);
+  if(isMath(k))learnMath(c,score);
+  if(P){P.hist.push({lv:c.lv,s:score});P.lv=Math.max(1,Math.min(M,c.lv+(score===1?1:score===0?-1:0)));}
   else{
     s.win=(s.win||[]).concat(score).slice(-10);s.since=(s.since||0)+1;
     if(s.since>=6){
       const w=s.win.slice(-Math.min(10,s.since)),avg=w.reduce((a,b)=>a+b,0)/w.length;
-      if(avg>=.85&&s.level<MAXLV){s.level++;change=1;}
+      if(avg>=.85&&s.level<M){s.level++;change=1;}
       else if(avg<=.5&&s.level>1&&s.lastDown!==t.date){s.level--;s.lastDown=t.date;change=-1;}
       if(change){s.since=0;s.win=[];}
     }
@@ -1065,7 +1229,7 @@ function record(score){
 }
 function advance(k){
   const s=SK(k);
-  if(s.placement&&s.placement.hist.length>=TESTN)return finishTest(k);
+  if(s.placement&&s.placement.hist.length>=TN(k))return finishTest(k);
   const t=state.today;
   if(t.count>=DAILY&&!t.doneShown&&!SKILLS().some(placing)){t.doneShown=true;save();scheduleReminders();return showDone();}
   newQ();
@@ -1077,6 +1241,61 @@ $("peek").onclick=()=>{const g=$("gtext");g.hidden=false;clearTimeout(g._t);g._t
 $("back").onclick=()=>{try{TTS?TTS.stop():speechSynthesis.cancel();}catch(e){}show("home");};
 $("back2").onclick=()=>show("home");
 $("toStats").onclick=()=>show("stats");
+
+/* ---------- 계산 화면 ---------- */
+function fitQ(){const el=$("cq"),len=el.textContent.length||1,w=Math.min(window.innerWidth,520)-140;el.style.fontSize=Math.round(Math.max(30,Math.min(72,w/(len*.58))))+"px";}
+function renderCalc(){
+  const c=state.cur,[info,w]=progInfo();
+  $("cInfo").innerHTML=info;$("cBar").style.width=w+"%";
+  if(!c)return;
+  $("cq").textContent=mathText(c.k,c.a,c.b)+" =";fitQ();
+  const nm=$("cNum");nm.textContent=input?Number(input).toLocaleString("ko-KR"):"?";nm.classList.toggle("empty",!input);
+  $("cGo").disabled=!input;
+  $("cShow").hidden=!(c.tries>0&&!c.rv);
+  $("cSkip").hidden=!c.rv;
+  $("cSpeak").hidden=guardian();
+  const rv=$("cRev");rv.hidden=!c.rv;
+  if(c.rv){
+    let h=`<div class="revtop"><span class="sub">정답</span><b class="big">${mathText(c.k,c.a,c.b)} = ${Number(c.t).toLocaleString("ko-KR")}</b></div>`;
+    if(c.k==="mul"&&c.a<=9&&c.b<=9){const d=c.lv===5&&c.b>c.a?c.b:c.a,o=d===c.a?c.b:c.a;
+      h+=`<div class="dan">${Array.from({length:8},(_,i)=>i+2).map(x=>`<span class="${x===o?"hit":""}">${d}×${x}=${d*x}</span>`).join("")}</div>`;}
+    else if(c.k==="add"&&carryOf(c.a,c.b)&&c.b<100){const up=10-(c.a%10);
+      if(c.b<10)h+=`<div class="sub">${c.a} + ${up} = ${c.a+up}, 남은 ${c.b-up}을 더하면 ${c.t}</div>`;
+      else h+=`<div class="sub">${c.a} + ${c.b-c.b%10} = ${c.a+c.b-c.b%10}, 그다음 + ${c.b%10} = ${c.t}</div>`;}
+    rv.innerHTML=h;
+  }
+}
+function buildCalcPad(){
+  const pad=$("cPad");
+  ["1","2","3","4","5","6","7","8","9","⌫","0","확인"].forEach(k=>{const b=document.createElement("button");b.type="button";
+    if(k==="확인"){b.className="btn cgo";b.id="cGo";b.textContent="확인";b.onclick=checkCalc;}
+    else{b.className="k"+(k==="⌫"?" sm":"");b.textContent=k==="⌫"?"⌫ 지우기":k;b.onclick=()=>pressCalc(k);}
+    pad.appendChild(b);});
+}
+function pressCalc(k){
+  if(busy||!state.cur)return;
+  if(k==="⌫")input=input.slice(0,-1);else{if(!input&&k==="0")return;if(input.length>=6)return;input+=k;}
+  $("cAns").className="answer";if(!state.cur.rv)$("cMsg").textContent="";renderCalc();
+}
+function checkCalc(){
+  if(busy||!input||!state.cur)return;
+  const c=state.cur;
+  if(c.tries===0&&c.ms==null)c.ms=Date.now()-(c.t0||Date.now());
+  if(+input===c.t)return onCorrect();
+  c.tries++;save();busy=true;
+  const a=$("cAns");a.className="answer no";a.classList.remove("shake");void a.offsetWidth;a.classList.add("shake");
+  $("cMsg").textContent=c.rv?"정답을 보고 다시 써 보세요":"다시 생각해 볼까요?";
+  setTimeout(()=>{input="";busy=false;a.className="answer";renderCalc();},900);
+  renderCalc();
+}
+function bindCalc(){
+  buildCalcPad();
+  $("cBack").onclick=()=>show("home");
+  $("cShow").onclick=()=>{if(!state.cur)return;state.cur.rv=true;input="";$("cMsg").textContent="";save();renderCalc();};
+  $("cSkip").onclick=()=>{if(busy||!state.cur)return;const k=state.cur.k;record(0);advance(k);};
+  $("cSpeak").onclick=()=>{const c=state.cur;if(!c)return;sayRaw(`${toKo(c.a)} ${c.k==="add"?"더하기":"곱하기"} ${toKo(c.b)}`,state.settings.rate);};
+  window.addEventListener("resize",()=>{if(screen==="calc")fitQ();});
+}
 
 function overlay(title,sub,note){
   $("ovcard").innerHTML=`<svg viewBox="0 0 150 150" aria-hidden="true">
@@ -1187,19 +1406,19 @@ function bindRead(){
 /* ---------- 실력 확인 결과 ---------- */
 function finishTest(k){
   const s=SK(k),P=s.placement,last=P.hist.slice(-4).map(h=>h.lv);
-  const lv=Math.max(1,Math.min(MAXLV,Math.floor(last.reduce((a,b)=>a+b,0)/last.length)));
+  const lv=Math.max(1,Math.min(MAXOF(k),Math.floor(last.reduce((a,b)=>a+b,0)/last.length)));
   const ok=P.hist.filter(h=>h.s===1||h.ok===true).length;
   s.level=lv;if(s.firstLevel==null)s.firstLevel=lv;
   s.placement=null;s.win=[];s.since=0;
   ensureToday();const tk=state.today[k];if(tk.lv0==null)tk.lv0=lv;
   const day=state.days[state.today.date];if(day&&day[k]){if(day[k].lv0==null)day[k].lv0=lv;day[k].lv=lv;}
   save();
-  const L=LV[lv],R=k==="read",ex=Number(L.ex).toLocaleString("ko-KR")+"원";
+
   $("placed").innerHTML=`<div class="card center">
-    <div class="sub">${SKILLS().length>1?TNAME[k]+" ":""}실력 확인 끝!</div>
+    <div class="sub">${TICON[k]} ${TNAME[k]} 실력 확인 끝!</div>
     <div class="lvbadge" style="width:96px;height:96px"><b style="font-size:40px">${lv}</b><span>레벨</span></div>
-    <h2>${L.nm}부터 시작해요</h2>
-    <div class="sub">${TESTN}문제 중 ${ok}문제를 한 번에 맞혔어요.<br>예) ${R?`${ex} → "${toKo(L.ex)} 원"`:`${toKo(L.ex)} 원 → ${ex}`}</div>
+    <h2>${lvName(k,lv)}부터 시작해요</h2>
+    <div class="sub">${TN(k)}문제 중 ${ok}문제를 한 번에 맞혔어요.<br>예) ${lvEx(k,lv)}</div>
     <button class="btn" type="button" id="goDaily" style="width:100%">계속하기</button>
     <button class="link" type="button" id="goHome">처음 화면으로</button></div>`;
   show("placed");
@@ -1218,7 +1437,7 @@ function showDone(){
     <svg viewBox="0 0 150 150" width="110" height="110" aria-hidden="true"><circle class="ok-ring" cx="75" cy="75" r="56"/>
       <path class="ok-star" d="M75 38l10 21 23 3-17 16 4 23-20-11-20 11 4-23-17-16 23-3z" style="fill:var(--accent-ink)"/></svg>
     <div class="bigstamp">오늘의 퀘스트 완료!</div>
-    <div class="tiles" style="width:100%">${SKILLS().map(per).join("")}${tile(streak()+"일","연속 완료")}${tile(t.listen.rv+t.read.rv,"정답 보고 푼 문제")}</div>
+    <div class="tiles" style="width:100%">${SKILLS().map(per).join("")}${tile(streak()+"일","연속 완료")}${tile(ALLK.reduce((a,k)=>a+t[k].rv,0),"정답 보고 푼 문제")}</div>
     ${grow.length?`<div class="grow">${grow.join("<br>")}</div>`:""}
     <button class="btn" type="button" id="dHome" style="width:100%">처음 화면으로</button>
     <div class="acts" style="width:100%"><button class="btn2" type="button" id="dMore">더 풀기</button><button class="btn2" type="button" id="dStats">기록 보기</button></div>
@@ -1230,8 +1449,8 @@ function showDone(){
 /* ---------- 기록 ---------- */
 let statK="listen";
 function renderStats(){
-  const tabs=$("stTabs");tabs.hidden=!readOK();if(!readOK())statK="listen";
-  tabs.querySelectorAll("button").forEach(b=>{b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
+  const tabs=$("stTabs");if(statK==="read"&&!readOK())statK="listen";
+  tabs.querySelectorAll("button").forEach(b=>{b.hidden=b.dataset.t==="read"&&!readOK();b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
   const k=statK,s=SK(k);
   const keys=Object.keys(state.days).filter(d=>state.days[d][k]&&state.days[d][k].n).sort(),ds=keys.map(d=>state.days[d][k]);
   const tot=ds.reduce((a,d)=>a+d.n,0),ok=ds.reduce((a,d)=>a+d.ok,0);
@@ -1242,9 +1461,14 @@ function renderStats(){
     <div class="tile"><div class="v">${tot}</div><div class="l">지금까지 푼 문제</div></div>
     <div class="tile"><div class="v">${streak()}일</div><div class="l">연속 완료 · 최고 레벨 ${best||"-"}</div></div>`;
   const wl=weakList(k);
+  $("ggCard").hidden=k!=="mul";
+  if(k==="mul"){const W=s.weak||{};let h=`<span class="gh"></span>`;for(let b=2;b<=9;b++)h+=`<span class="gh">${b}</span>`;
+    for(let a=2;a<=9;a++){h+=`<span class="gh">${a}</span>`;for(let b=2;b<=9;b++){const w=W[`fact:${Math.min(a,b)}x${Math.max(a,b)}`];
+      const cl=!w||w.n<.9?"":w.m/w.n<=.15?"g":w.m/w.n<=.45?"y":"r";h+=`<span class="gc ${cl}">${a*b}</span>`;}}
+    $("gg").innerHTML=h;}
   const errs=wl.filter(x=>x.key.startsWith("err:")||x.key.startsWith("pair:")).filter(x=>x.acc<80).sort((a,b)=>a.acc-b.acc).slice(0,4);
   const weak=wl.filter(x=>!x.key.startsWith("err:")&&!x.key.startsWith("pair:")&&x.acc<80).sort((a,b)=>a.acc-b.acc).slice(0,4);
-  const good=wl.filter(x=>x.acc>=90&&(x.key.startsWith("one:")||x.key.startsWith("zero:"))).sort((a,b)=>b.acc-a.acc).slice(0,3);
+  const good=wl.filter(x=>x.acc>=90&&(x.key.startsWith("one:")||x.key.startsWith("zero:")||x.key.startsWith("fact:")||x.key.startsWith("cat:"))).sort((a,b)=>b.acc-a.acc).slice(0,3);
   const row=(x,g,v)=>`<div class="wkrow"><div class="top"><span>${label(x.key)}</span><b>${v}%</b></div><div class="wkbar${g?" g":""}"><i style="width:${Math.max(4,v)}%"></i></div></div>`;
   $("weak").innerHTML=!wl.length?`<div class="empty">문제를 더 풀면 어떤 부분이 약한지 여기에 보여 드려요</div>`:
     (errs.length?`<div class="wkh">자주 하는 실수 · 이런 실수가 나온 비율</div>${errs.map(x=>row(x,false,Math.round(x.rate*100))).join("")}`:"")+
@@ -1258,7 +1482,7 @@ function renderStats(){
     $("tbl").innerHTML=`<div class="empty">아직 기록이 없어요</div>`;return;
   }
   const lvs=recent.map(d=>state.days[d][k].lv).filter(v=>v!=null);
-  $("lvChart").innerHTML=lvs.length?lineChart(lvs,recent.filter(d=>state.days[d][k].lv!=null).map(d=>+d.slice(5,7)+"/"+ +d.slice(8))):`<div class="empty">실력 확인이 끝나면 레벨 그래프가 생겨요</div>`;
+  $("lvChart").innerHTML=lvs.length?lineChart(lvs,MAXOF(k),recent.filter(d=>state.days[d][k].lv!=null).map(d=>+d.slice(5,7)+"/"+ +d.slice(8))):`<div class="empty">실력 확인이 끝나면 레벨 그래프가 생겨요</div>`;
   $("accChart").innerHTML=barChart(recent.map(d=>{const x=state.days[d][k];return x.n?Math.round(x.ok/x.n*100):0;}),lab);
   $("tbl").innerHTML=`<table><thead><tr><th>날짜</th><th>푼 문제</th><th>한 번에</th><th>고쳐 맞힘</th><th>정답 봄</th><th>레벨</th></tr></thead><tbody>
     ${keys.slice(-14).reverse().map(d=>{const day=state.days[d],x=day[k];return`<tr><td>${+d.slice(5,7)}월 ${+d.slice(8)}일${day.n>=(day.goal||20)?" ✔":""}</td><td>${x.n}</td><td>${x.ok}</td><td>${x.part||0}</td><td>${x.rv}</td><td>${x.lv0??"-"} → ${x.lv??"-"}</td></tr>`;}).join("")}
@@ -1268,9 +1492,9 @@ const CW=320,CH=150,PL=30,PR=12,PT=12,PB=24;
 function xAt(i,n){return n===1?(PL+CW-PR)/2:PL+i*(CW-PL-PR)/(n-1);}
 function axisX(lab){const n=lab.length,idx=n===1?[0]:[0,n-1];if(n>4)idx.splice(1,0,Math.floor((n-1)/2));
   return idx.map(i=>`<text class="ch-txt" x="${xAt(i,n)}" y="${CH-6}" text-anchor="${n===1?"middle":i===0?"start":i===n-1?"end":"middle"}">${lab[i]}</text>`).join("");}
-function lineChart(v,lab){
-  const y=l=>PT+(MAXLV-l)*(CH-PT-PB)/(MAXLV-1),n=v.length;
-  const grid=[1,5,10,14].map(l=>`<line class="ch-grid" x1="${PL}" x2="${CW-PR}" y1="${y(l)}" y2="${y(l)}"/><text class="ch-txt" x="${PL-6}" y="${y(l)+3}" text-anchor="end">${l}</text>`).join("");
+function lineChart(v,MX,lab){
+  const y=l=>PT+(MX-l)*(CH-PT-PB)/(MX-1),n=v.length;
+  const grid=(MX>8?[1,5,10,14]:[1,4,8]).map(l=>`<line class="ch-grid" x1="${PL}" x2="${CW-PR}" y1="${y(l)}" y2="${y(l)}"/><text class="ch-txt" x="${PL-6}" y="${y(l)+3}" text-anchor="end">${l}</text>`).join("");
   const pts=v.map((l,i)=>[xAt(i,n),y(l)]);
   const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
   const area=n>1?`<path class="ch-area" d="${line} L${pts[n-1][0]} ${y(1)} L${pts[0][0]} ${y(1)} Z"/>`:"";
@@ -1288,6 +1512,7 @@ function barChart(v,lab){
 
 /* ---------- 시작 ---------- */
 document.addEventListener("keydown",e=>{
+  if(screen==="calc"){if(/^[0-9]$/.test(e.key))pressCalc(e.key);else if(e.key==="Backspace")pressCalc("⌫");else if(e.key==="Enter")checkCalc();return;}
   if(screen!=="play")return;
   if(/^[0-9]$/.test(e.key))press(e.key);else if(e.key==="Backspace")press("⌫");else if(e.key==="Enter")check();
 });
@@ -1295,6 +1520,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&screen===
 buildPad();
 bindRec();
 bindRead();
+bindCalc();
 show("home");
 scheduleReminders();
 if(APP){
