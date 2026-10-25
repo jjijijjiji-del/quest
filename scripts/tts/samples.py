@@ -73,5 +73,28 @@ def melo():
     build(say, sr, "melotts-KR")
 
 
+def speeds():
+    """F1·F3 목소리를 속도별로. 마지막은 '칠 / 곱하기 / 팔' 조각을 쉬면서 이어 붙인 버전"""
+    from supertonic import TTS
+    tts = TTS(auto_download=True)
+    sr = getattr(tts, "sample_rate", None) or 44100
+    texts = ["구천팔백십 원", "사백만 오백 원", "커피는 사천 원이고, 빵은 이천 원이에요. 빵은 얼마예요?", "칠 곱하기 팔"]
+    for v in ["F1", "F3"]:
+        style = tts.get_voice_style(voice_name=v)
+        for sp in [0.75, 0.85, 1.0]:
+            def say(t):
+                w, _ = tts.synthesize(t, voice_style=style, lang="ko", total_steps=10, speed=sp, silence_duration=0.1)
+                return np.asarray(w, dtype=np.float32).reshape(-1)
+            parts = []
+            for t in texts:
+                parts += [say(t), gap(sr, 1.0)]
+            for p in ["칠", "곱하기", "팔"]:
+                parts += [trim(say(p), sr), gap(sr, 0.4)]
+            w = np.concatenate(parts)
+            w = w / max(np.abs(w).max(), 1e-6) * 0.9
+            sf.write(f"{OUT}/{v}-speed-{sp:.2f}.wav", w, sr)
+            print("wrote", v, sp, len(w) / sr)
+
+
 if __name__ == "__main__":
-    {"supertonic": supertonic, "melo": melo}[sys.argv[1]]()
+    {"supertonic": supertonic, "melo": melo, "speeds": speeds}[sys.argv[1]]()
