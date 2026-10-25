@@ -12,9 +12,13 @@ permissions:
   contents: write
 
 jobs:
-  pack:
+  part:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -23,18 +27,45 @@ jobs:
       - name: 설치
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
-          pip install supertonic soundfile numpy
-      - name: 소리 만들기
-        run: python scripts/tts/gen_pack.py voice
-      - name: 묶기
+          pip install supertonic faster-whisper soundfile numpy
+      - name: 소리 만들고 받아 적어 검사하기
+        run: python scripts/tts/gen_pack.py voice shard ${{ matrix.shard }} 6
+      - uses: actions/upload-artifact@v4
+        with:
+          name: part-${{ matrix.shard }}
+          path: |
+            voice
+            report
+
+  pack:
+    needs: part
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+      - name: 합치기
         run: |
-          du -sh voice; find voice -name "*.ogg" | wc -l
+          mkdir -p voice report
+          for d in parts/part-*; do cp -r $d/voice/. voice/; cp -r $d/report/. report/; done
+          python scripts/tts/gen_pack.py voice index
+          find voice -name "*.ogg" | wc -l; du -sh voice
+          python - <<'PY'
+          import json,glob
+          rs=[r for f in glob.glob("report/*.json") for r in json.load(open(f))]
+          bad=[r for r in rs if not r["ok"]]
+          print(f"전체 {len(rs)}개, 다시 만든 것 {sum(r['tries']>1 for r in rs)}개, 끝까지 검사 실패 {len(bad)}개")
+          for r in bad[:80]: print("FAIL", r["name"], "|", r["text"], "→", r["heard"])
+          json.dump(bad,open("voice-check-failures.json","w"),ensure_ascii=False,indent=1)
+          PY
           zip -qr voice-pack.zip voice
-          ls -la voice-pack.zip
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: voice-pack
           name: 음성 팩 (앱 빌드에 들어가는 소리)
-          body: Supertonic F1 목소리로 만든 금액·문장·계산 문제 소리. APK 빌드 때 자동으로 들어가요.
-          files: voice-pack.zip
+          body: Supertonic F1 목소리로 만든 금액·문장·계산 문제 소리. 만든 뒤 음성 인식으로 받아 적어 내용이 빠지지 않았는지 검사했어요. APK 빌드 때 자동으로 들어가요.
+          files: |
+            voice-pack.zip
+            voice-check-failures.json
           make_latest: false

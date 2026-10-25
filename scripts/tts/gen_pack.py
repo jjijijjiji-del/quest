@@ -201,68 +201,211 @@ def math_items():
     return out
 
 
+# ---------- 받아 적은 글에서 숫자 찾기 (검사용) ----------
+NUMC = set("0123456789일이삼사오육륙칠팔구십백천만")
+KD = {"일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "륙": 6, "칠": 7, "팔": 8, "구": 9}
+UN = {"십": 10, "백": 100, "천": 1000}
+
+
+def parse_run(r):
+    total = sec = 0
+    num = None
+    i = 0
+    while i < len(r):
+        ch = r[i]
+        if ch.isdigit():
+            j = i
+            while j < len(r) and r[j].isdigit():
+                j += 1
+            num = int(r[i:j]); i = j; continue
+        if ch in KD:
+            num = KD[ch]
+        elif ch in UN:
+            sec += (num if num is not None else 1) * UN[ch]; num = None
+        elif ch == "만":
+            sec += num or 0
+            total += (sec or 1) * 10000; sec = 0; num = None
+        i += 1
+    return total + sec + (num or 0)
+
+
+def runs(t):
+    out, cur = [], ""
+    for ch in t:
+        if ch in NUMC:
+            cur += ch
+        else:
+            if cur:
+                out.append(cur)
+            cur = ""
+    if cur:
+        out.append(cur)
+    return out
+
+
+def clean(t):
+    return t.replace(" ", "").replace(",", "").replace(".", "").replace("?", "")
+
+
+def check_money(text, v):
+    rs = runs(clean(text))
+    return bool(rs) and parse_run(max(rs, key=len)) == v
+
+
+def check_sentence(text, q):
+    t = clean(text)
+    if "원" not in t:
+        return False
+    segs = t.split("원")
+    prices = []
+    for seg in segs[:-1]:
+        rs = runs(seg)
+        if not rs:
+            return False
+        prices.append(parse_run(rs[-1]))
+    want = [it[1] for it in q["items"]]
+    if prices[:len(want)] != want:
+        return False
+    if len(want) > 1:
+        tail = segs[-1]
+        name = q["items"][q["ask"]][0]
+        if name not in tail or "얼마" not in tail:
+            return False
+    for it in q["items"]:
+        if it[0] not in t:
+            return False
+    return True
+
+
+def check_math(text, a, b, op):
+    t = clean(text)
+    if op not in t and ("×" if op == "곱하기" else "+") not in t and "x" not in t.lower():
+        return False
+    vals = [parse_run(r) for r in runs(t.replace(op, "|"))]
+    return vals[:2] == [a, b]
+
+
+# ---------- 할 일 목록 ----------
+def all_jobs():
+    """(파일 이름, [(글, 쉬는 시간)...], 속도, 검사 종류, 검사 값)"""
+    jobs = []
+    money = money_pools()
+    for v in sorted({v for lv in money for v in money[lv]}):
+        jobs.append((f"m/{v}_n", [f"{to_ko(v)} 원"], "n", "money", v))
+        jobs.append((f"m/{v}_d", [f"{to_ko(v)} 원"], "d", "money", v))
+        jobs.append((f"m/{v}_s", [f"{to_ko_parts(v)} 원"], "s", "money", v))
+    sent = sentence_pools()
+    for lv in sent:
+        for q in sent[lv]:
+            for sv, slow in (("d", False), ("s", True)):
+                body, ques = sentence_parts(q, slow)
+                jobs.append((f"s/{q['id']}_{sv}", [body] + ([ques] if ques else []), sv, "sent", q))
+    for key, t, ts in math_items():
+        a, b = int(key[4]), int(key[6])
+        op = "곱하기" if key.startswith("mul") else "더하기"
+        jobs.append((f"x/{key}_d", [t], "d", "math", (a, b, op)))
+        jobs.append((f"x/{key}_s", [ts], "s", "math", (a, b, op)))
+    return jobs, money, sent
+
+
+def sentence_parts(q, slow):
+    """문장과 질문을 따로: 질문을 따로 만들어야 상품 이름이 빠지는 오류가 줄어듦"""
+    full = sentence_text(q, slow)
+    if len(q["items"]) == 1:
+        return full, None
+    i = full.rfind(". ")
+    return full[:i + 1], full[i + 2:]
+
+
 # ---------- 소리 만들기 ----------
-def main():
+def main(shard, nshard):
     from supertonic import TTS
+    from faster_whisper import WhisperModel
     tts = TTS(auto_download=True)
     sr = getattr(tts, "sample_rate", None) or 44100
     style = tts.get_voice_style(voice_name=VOICE)
+    asr = WhisperModel("small", device="cpu", compute_type="int8")
 
-    def synth(text, sp, path):
+    def synth(text, sp):
         w, _ = tts.synthesize(text, voice_style=style, lang="ko", total_steps=10, speed=sp, silence_duration=0.15)
         w = np.asarray(w, dtype=np.float32).reshape(-1)
         a = np.abs(w)
         idx = np.where(a > 0.01 * max(a.max(), 1e-6))[0]
         if len(idx):
             w = w[max(0, idx[0] - int(sr * .03)): min(len(w), idx[-1] + int(sr * .12))]
-        w = w / max(np.abs(w).max(), 1e-6) * 0.92
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        sf.write(path, w, sr)
+        return w
 
-    jobs = []
-    money = money_pools()
-    amounts = sorted({v for lv in money for v in money[lv]})
-    for v in amounts:
-        jobs.append((f"m/{v}_n", f"{to_ko(v)} 원", SPEED["n"]))
-        jobs.append((f"m/{v}_d", f"{to_ko(v)} 원", SPEED["d"]))
-        jobs.append((f"m/{v}_s", f"{to_ko_parts(v)} 원", SPEED["s"]))
-    sent = sentence_pools()
-    for lv in sent:
-        for q in sent[lv]:
-            jobs.append((f"s/{q['id']}_d", sentence_text(q, False), SPEED["d"]))
-            jobs.append((f"s/{q['id']}_s", sentence_text(q, True), SPEED["s"]))
-    maths = math_items()
-    for key, t, ts in maths:
-        jobs.append((f"x/{key}_d", t, SPEED["d"]))
-        jobs.append((f"x/{key}_s", ts, SPEED["s"]))
+    def hear(w):
+        x = w
+        if sr != 16000:
+            n = int(len(w) * 16000 / sr)
+            x = np.interp(np.linspace(0, len(w) - 1, n), np.arange(len(w)), w).astype(np.float32)
+        segs, _ = asr.transcribe(x, language="ko", beam_size=3, vad_filter=False, condition_on_previous_text=False)
+        return " ".join(s.text for s in segs).strip()
 
-    print(f"{len(amounts)} amounts, {sum(len(v) for v in sent.values())} sentences, {len(maths)} math, {len(jobs)} clips", flush=True)
-    for i, (name, text, sp) in enumerate(jobs):
-        synth(text, sp, f"{WAV}/{name}.wav")
-        if i % 200 == 0:
-            print(i, name, text, flush=True)
+    jobs, _, _ = all_jobs()
+    mine = jobs[shard::nshard]
+    report = []
+    for i, (name, texts, sv, kind, val) in enumerate(mine):
+        ok, heard = False, ""
+        for attempt in range(5):
+            sp = SPEED[sv] + [0, -.02, .02, -.04, .04][attempt]
+            parts = []
+            for j, t in enumerate(texts):
+                if j:
+                    parts.append(np.zeros(int(sr * (.7 if sv == "s" else .45)), dtype=np.float32))
+                parts.append(synth(t, sp))
+            w = np.concatenate(parts)
+            w = w / max(np.abs(w).max(), 1e-6) * 0.92
+            heard = hear(w)
+            if kind == "money":
+                ok = check_money(heard, val)
+            elif kind == "sent":
+                ok = check_sentence(heard, val)
+            else:
+                ok = check_math(heard, *val)
+            if ok:
+                break
+        os.makedirs(os.path.dirname(f"{WAV}/{name}.wav"), exist_ok=True)
+        sf.write(f"{WAV}/{name}.wav", w, sr)
+        report.append({"name": name, "ok": ok, "tries": attempt + 1, "heard": heard, "text": " / ".join(texts)})
+        if i % 50 == 0 or not ok:
+            print(i, len(mine), name, "OK" if ok else "FAIL", attempt + 1, "|", " / ".join(texts), "→", heard, flush=True)
 
-    # ogg(opus)로 압축
-    subprocess.run(f"cd {WAV} && find . -name '*.wav' | sed 's/\\.wav$//' | xargs -P 8 -I{{}} sh -c "
+    subprocess.run(f"cd {WAV} && find . -name '*.wav' | sed 's/\\.wav$//' | xargs -P 4 -I{{}} sh -c "
                    f"'mkdir -p ../{OUT}/$(dirname {{}}) && ffmpeg -loglevel error -y -i {{}}.wav -ac 1 -ar 24000 -c:a libopus -b:a 24k ../{OUT}/{{}}.ogg'",
                    shell=True, check=True)
+    os.makedirs("report", exist_ok=True)
+    with open(f"report/shard{shard}.json", "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=0)
+    bad = [r for r in report if not r["ok"]]
+    print(f"shard {shard}: {len(report)} clips, retried {sum(r['tries'] > 1 for r in report)}, still failing {len(bad)}")
 
-    index = {"v": 1, "voice": VOICE,
+
+def write_index():
+    _, money, sent = all_jobs()
+    os.makedirs(OUT, exist_ok=True)
+    index = {"v": 2, "voice": VOICE,
              "money": {str(k): v for k, v in money.items()},
              "sent": {str(k): v for k, v in sent.items()},
-             "math": [k for k, _, _ in maths]}
+             "math": [k for k, _, _ in math_items()]}
     with open(f"{OUT}/index.json", "w", encoding="utf-8") as f:
         json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
-    print("done")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2 and sys.argv[2] == "--dry":
-        m = money_pools(); s = sentence_pools()
-        print({k: len(v) for k, v in m.items()})
-        for lv in s:
-            for q in s[lv][:3]:
-                print(lv, sentence_text(q, False), "|", sentence_text(q, True))
-        print(len(math_items()))
+    # gen_pack.py voice shard 0 6   /   gen_pack.py voice index   /   gen_pack.py voice dry
+    cmd = sys.argv[2] if len(sys.argv) > 2 else "dry"
+    if cmd == "shard":
+        main(int(sys.argv[3]), int(sys.argv[4]))
+    elif cmd == "index":
+        write_index()
     else:
-        main()
+        jobs, m, s = all_jobs()
+        print(len(jobs), {k: len(v) for k, v in m.items()})
+        for j in jobs[:2] + [x for x in jobs if x[3] == "sent"][:3] + [x for x in jobs if x[3] == "math"][:2]:
+            print(j[0], j[1], j[2])
+        print(check_sentence("만두는 9000원이고, 두부는 3000원이에요. 두부는 얼마예요?", {"items": [["만두", 9000], ["두부", 3000]], "ask": 1}),
+              check_sentence("만두는 9000원이고, 두부는 3000원이에요. 얼마예요?", {"items": [["만두", 9000], ["두부", 3000]], "ask": 1}),
+              check_money("구천 팔백십 원", 9810), check_money("9,810원", 9810), check_money("백만 십 원", 1000010),
+              check_math("7 곱하기 8", 7, 8, "곱하기"), check_math("칠, 곱하기, 팔", 7, 8, "곱하기"))
