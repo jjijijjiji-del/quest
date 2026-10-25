@@ -821,7 +821,7 @@ function pickVoice(){if(TTS||!canTTS)return;koVoice=speechSynthesis.getVoices().
 if(!TTS&&canTTS){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
 /* ===== 음성 팩 (Supertonic F1로 미리 만든 소리) =====
    m/금액_n|d|s.ogg · s/문장id_d|s.ogg · x/mul_7x8_d|s.ogg
-   n 보통 0.85배 / d 천천히 0.75배 (기본) / s 아주 천천히 0.7배 + 쉬어 가기 */
+   d 천천히 0.75배 (기본) / s 아주 천천히 0.7배 + 쉬어 가기 */
 let PACK=null;
 const packReady=fetch("voice/index.json").then(r=>r.ok?r.json():null).then(j=>{PACK=j;if(j&&state.settings.mode!=="guardian")state.settings.mode="voice";if(screen==="home")renderHome();}).catch(()=>{});
 const voiceMode=()=>!!PACK&&state.settings.mode!=="guardian";
@@ -831,7 +831,7 @@ let vAudio=null;
 function playVoice(path){
   try{if(vAudio){vAudio.pause();vAudio.src="";}vAudio=new Audio("voice/"+path+".ogg");vAudio.play().catch(()=>{});}catch(e){}
 }
-const vSpd=(slow)=>slow?"s":(state.settings.vspeed||"d");
+const vSpd=(slow)=>slow||state.settings.vspeed==="s"?"s":"d";
 function voicePath(c,slow){
   if(!c)return null;
   // 문장·계산은 보통/천천히 구분 없이 하나(d)만 있어서, 아주 천천히(s)만 따로 고름
@@ -1129,7 +1129,7 @@ function renderSettingsRest(){
      b.textContent=`${TICON[k]} ${TNAME[k]}`;b.setAttribute("aria-pressed",P[k]!==false);
      b.onclick=()=>{const on=P[k]!==false;if(on&&SKILLS().length<=1)return;P[k]=!on;save();renderHome();};row.appendChild(b);});}
   $("styleRow").hidden=$("engineRow").hidden=!!PACK;
-  if(PACK){chips("rateRow",[["s","아주 천천히"],["d","천천히"],["n","보통"]],"vspeed");$("rateRow").querySelector(".lab").textContent="읽는 속도 · 두 번째 다시 듣기부터는 아주 천천히";}
+  if(PACK){if(state.settings.vspeed==="n")state.settings.vspeed="d";chips("rateRow",[["s","아주 천천히"],["d","천천히"]],"vspeed");$("rateRow").querySelector(".lab").textContent="읽는 속도 · 두 번째 다시 듣기부터는 아주 천천히";}
   chips("styleRow",[["num","자연스럽게 (숫자로)"],["spaced","또박또박 (띄어서)"],["ko","한글 그대로"]],"readStyle");
   $("styleRow").querySelectorAll(".chip").forEach(b=>{const f=b.onclick;b.onclick=()=>{f();if(!guardian())sayRaw(textFor(9810),state.settings.rate);};});
   if(!PACK)chips("rateRow",TTS?[[.45,"아주 천천히"],[.6,"천천히"],[.8,"보통"]]:[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");

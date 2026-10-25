@@ -1,7 +1,7 @@
 """음성 팩 만들기 (GitHub Actions에서 실행)
 
 Supertonic F1 목소리로 앱에서 쓸 소리를 모두 미리 만든다.
-  m/  금액 (듣고 쓰기 · 보고 읽기 정답 듣기)      _n 0.85배 / _d 0.75배(기본) / _s 0.7배+쉼표
+  m/  금액 (듣고 쓰기 · 보고 읽기 정답 듣기)      _d 0.75배(기본) / _s 0.7배+쉼표
   s/  문장 속 금액 듣기                           _d / _s
   x/  곱셈·덧셈 문제 읽기                          _d / _s
 index.json 에 레벨별 금액 묶음과 문장 문제 목록을 담는다.
@@ -291,7 +291,6 @@ def all_jobs():
     jobs = []
     money = money_pools()
     for v in sorted({v for lv in money for v in money[lv]}):
-        jobs.append((f"m/{v}_n", [f"{to_ko(v)} 원"], "n", "money", v))
         jobs.append((f"m/{v}_d", [f"{to_ko(v)} 원"], "d", "money", v))
         jobs.append((f"m/{v}_s", [f"{to_ko_parts(v)} 원"], "s", "money", v))
     sent = sentence_pools()
