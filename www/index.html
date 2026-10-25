@@ -241,6 +241,9 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .intro{gap:14px}
 .intro .iic{font-size:56px;line-height:1}
 .intro>div:not(.sub){font-size:18px;line-height:1.6}
+.sline{font-size:15px;line-height:1.5;text-align:center;color:var(--ink)}
+.sline .hl,.gtext .hl{background:color-mix(in srgb,var(--gold) 30%,transparent);border-radius:4px;padding:0 3px}
+#play .gbox .gtext{font-size:17px;font-weight:700;line-height:1.45;text-align:center}
 .ovnote{font-size:17px;color:var(--muted);text-align:center;max-width:260px}
 
 /* ---- 덧셈·곱셈 ---- */
@@ -263,6 +266,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .dan span{font-size:13px;font-variant-numeric:tabular-nums;background:var(--bg);border-radius:6px;padding:2px 6px}
 .dan span.hit{background:var(--gold);color:#1b1b1b;font-weight:800}
 .dots i.d-read.on{background:var(--gold)}
+.dots i.d-sent.on{background:color-mix(in srgb,var(--accent) 55%,var(--good))}
 .dots i.d-add.on{background:var(--c-add)}
 .dots i.d-mul.on{background:var(--c-mul)}
 .dots i.d-read,.dots i.d-add,.dots i.d-mul{outline:none}
@@ -304,7 +308,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
       <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
       <div class="row" id="dailyRow"><span class="lab">하루 문제 수</span></div>
-      <div class="row" id="partsRow"><span class="lab">오늘 문제에 넣을 것 · 고른 것끼리 문제 수를 똑같이 나눠요</span></div>
+      <div class="row" id="partsRow"><span class="lab">오늘 문제에 넣을 것 · 듣고 쓰기에 가장 많이, 문장 듣기에 그다음으로 많이 나눠요</span></div>
       <div class="row" id="styleRow"><span class="lab">읽는 방식 · 누르면 예시(9,810원)를 읽어 줘요</span></div>
       <div class="row" id="engineRow"><span class="lab">발음이 이상하면 폰의 음성 엔진이나 목소리를 바꿔 보세요</span><button class="chip" type="button" id="openTts">음성 엔진 설정 열기</button></div>
       <div class="row" id="rateRow"><span class="lab">읽는 속도</span></div>
@@ -312,6 +316,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
       <div class="row" id="sfxRow"><span class="lab">정답 효과음</span></div>
       <div class="row"><span class="lab">레벨 직접 바꾸기</span>
         <div class="stepper" data-k="listen"><span class="slab">듣고 쓰기</span><button type="button" data-d="-1" aria-label="듣고 쓰기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="듣고 쓰기 레벨 올리기">+</button></div>
+        <div class="stepper" data-k="sent"><span class="slab">문장 듣기</span><button type="button" data-d="-1" aria-label="문장 듣기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="문장 듣기 레벨 올리기">+</button></div>
         <div class="stepper" data-k="read"><span class="slab">보고 읽기</span><button type="button" data-d="-1" aria-label="보고 읽기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="보고 읽기 레벨 올리기">+</button></div>
         <div class="stepper" data-k="add"><span class="slab">덧셈</span><button type="button" data-d="-1" aria-label="덧셈 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="덧셈 레벨 올리기">+</button></div>
         <div class="stepper" data-k="mul"><span class="slab">곱셈</span><button type="button" data-d="-1" aria-label="곱셈 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="곱셈 레벨 올리기">+</button></div>
@@ -425,6 +430,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
   <h1>내 기록</h1>
   <div class="tabs t4" id="stTabs">
     <button type="button" data-t="listen">👂 듣고 쓰기</button>
+    <button type="button" data-t="sent">🛒 문장 듣기</button>
     <button type="button" data-t="read">👀 보고 읽기</button>
     <button type="button" data-t="add">➕ 덧셈</button>
     <button type="button" data-t="mul">✖️ 곱셈</button>
@@ -507,7 +513,8 @@ const TAGL={
   "err:concat":"들리는 대로 이어 붙여요 (1,100 → 1000100)",
   "err:shift":"자릿수가 하나 밀려요 (9,810 → 98,100)",
   "err:order":"숫자 순서가 바뀌어요 (9,810 → 9,180)",
-  "err:unit":"자릿값을 헷갈려요 (구십이만 → 구백이만)"
+  "err:unit":"자릿값을 헷갈려요 (구십이만 → 구백이만)",
+  "err:item":"물어본 것 말고 다른 물건 가격을 써요"
 };
 function label(key){
   if(TAGL[key])return TAGL[key];
@@ -622,8 +629,13 @@ const MLV={
     {nm:"십몇 × 한 자리",ex:[12,4],sec:10},
     {nm:"두 자리 × 한 자리",ex:[23,4],sec:15}]
 };
-const MAXOF=k=>isMath(k)?8:MAXLV;
-const TN=k=>isMath(k)?6:TESTN;
+const SLV=[null,
+  {nm:"상품 하나",ex:"사과는 3,000원이에요."},
+  {nm:"상품 둘 · 뒤에 나온 것 묻기",ex:"커피 4,000원, 빵 2,000원 → 빵은?"},
+  {nm:"상품 둘 · 아무거나 묻기",ex:"커피 4,000원, 빵 2,000원 → 커피는?"},
+  {nm:"상품 셋 · 하나 묻기",ex:"우유, 빵, 커피 중 → 빵은?"}];
+const MAXOF=k=>isMath(k)?8:k==="sent"?4:MAXLV;
+const TN=k=>isMath(k)||k==="sent"?6:TESTN;
 const OPS={add:"+",mul:"×"};
 const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 const ansOf=(k,a,b)=>k==="add"?a+b:a*b;
@@ -664,6 +676,13 @@ function pickMath(k,lv,prev){
   }
   return best||genMath(k,lv);
 }
+function learnSent(c,ans){
+  const s=SK("sent"),W=s.weak||(s.weak={});
+  if(c.items.length>1){const other=ans!=null&&c.items.some((x,i)=>i!==c.ask&&x[1]===+ans);
+    const w=W["err:item"]||(W["err:item"]={n:0,m:0});w.n=decay(w.n,1);w.m=decay(w.m,other?1:0);
+    if(other)return;}
+  learn("sent",c.t,ans);
+}
 function learnMath(c,score){
   const s=SK(c.k),W=s.weak||(s.weak={}),miss=score>=1?0:score>0?.5:1;
   const keys=[factKey(c.k,c.a,c.b)];
@@ -673,6 +692,8 @@ function learnMath(c,score){
 const mathText=(k,a,b)=>`${Number(a).toLocaleString("ko-KR")} ${OPS[k]} ${Number(b).toLocaleString("ko-KR")}`;
 
 function gen(lv,prev){
+  const pool=PACK&&PACK.money&&PACK.money[lv];
+  if(pool&&pool.length){for(let i=0;i<20;i++){const n=pool[Math.floor(Math.random()*pool.length)];if(n!==prev||pool.length<2)return n;}}
   const L=LV[lv];
   for(let i=0;i<200;i++){
     if(L.z==="sparse"){ // 백만 자리 + 아래쪽 한두 자리만 (예: 4,000,500 / 2,030,007)
@@ -694,13 +715,13 @@ function gen(lv,prev){
    실력(레벨·약점)은 듣고 쓰기 / 보고 읽기 따로, 하루 문제는 하나로 이어서 */
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-const TNAME={listen:"듣고 쓰기",read:"보고 읽기",add:"덧셈",mul:"곱셈"};
-const TICON={listen:"👂",read:"👀",add:"➕",mul:"✖️"};
-const ALLK=["listen","read","add","mul"];
+const TNAME={listen:"듣고 쓰기",sent:"문장 듣기",read:"보고 읽기",add:"덧셈",mul:"곱셈"};
+const TICON={listen:"👂",sent:"🛒",read:"👀",add:"➕",mul:"✖️"};
+const ALLK=["listen","sent","read","add","mul"];
 const freshSkill=()=>({level:null,firstLevel:null,placement:null,weak:{},pair:{},seen:{},win:[],since:0,lastDown:null});
 const freshTk=()=>({n:0,ok:0,part:0,rv:0,lv0:null});
-function fresh(){return{v:3,updatedAt:0,skills:{listen:freshSkill(),read:freshSkill(),add:freshSkill(),mul:freshSkill()},cur:null,today:null,days:{},lastSkill:null,
-  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:20,parts:{listen:true,read:true,add:true,mul:true},remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
+function fresh(){return{v:3,updatedAt:0,skills:{listen:freshSkill(),sent:freshSkill(),read:freshSkill(),add:freshSkill(),mul:freshSkill()},cur:null,today:null,days:{},lastSkill:null,
+  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:30,vspeed:"d",parts:{listen:true,sent:true,read:true,add:true,mul:true},remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
 // 예전 저장 형식(v2: 듣고 쓰기/보고 읽기를 탭으로 따로 풀던 때)을 옮겨 옴
 function migrate(r){
   const st=fresh();st.settings=Object.assign(st.settings,r.settings||{});st.habit=r.habit||[];
@@ -716,7 +737,7 @@ function migrate(r){
     }
   }
   const d=dkey(),day=st.days[d];
-  if(day){st.today={date:d,count:day.n,doneShown:day.n>=(day.goal||20),listen:freshTk(),read:freshTk(),add:freshTk(),mul:freshTk()};
+  if(day){st.today={date:d,count:day.n,doneShown:day.n>=(day.goal||20),listen:freshTk(),sent:freshTk(),read:freshTk(),add:freshTk(),mul:freshTk()};
     for(const k of ["listen","read"])if(day[k])Object.assign(st.today[k],{n:day[k].n,ok:day[k].ok,rv:day[k].rv,lv0:day[k].lv0});}
   return st;
 }
@@ -725,7 +746,8 @@ try{const r=JSON.parse(localStorage.getItem(KEY)||"null");
   if(r&&r.v===3)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});
   else if(r&&r.v===2)state=migrate(r);
   ALLK.forEach(k=>state.skills[k]=Object.assign(freshSkill(),state.skills[k]||{}));
-  state.settings.parts=Object.assign({listen:true,read:true,add:true,mul:true},state.settings.parts||{});
+  state.settings.parts=Object.assign({listen:true,sent:true,read:true,add:true,mul:true},state.settings.parts||{});
+  if(!state.settings.d30){state.settings.d30=true;if((state.settings.daily||20)<30)state.settings.daily=30;}
 }catch(e){}
 (function(){const st=state.settings;if(st.remind!==undefined){if(st.remind<0)st.remindMode="off";else{st.remindMode="manual";st.reminds=[st.remind];}delete st.remind;}})();
 function save(){
@@ -797,8 +819,25 @@ const canTTS=!!TTS||("speechSynthesis" in window&&typeof SpeechSynthesisUtteranc
 let koVoice=null;
 function pickVoice(){if(TTS||!canTTS)return;koVoice=speechSynthesis.getVoices().find(v=>/ko/i.test(v.lang))||null;}
 if(!TTS&&canTTS){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
-const recMode=()=>state.settings.mode==="rec"&&recReady();
-const guardian=()=>!recMode()&&(state.settings.mode==="guardian"||!canTTS);
+/* ===== 음성 팩 (Supertonic F1로 미리 만든 소리) =====
+   m/금액_n|d|s.ogg · s/문장id_d|s.ogg · x/mul_7x8_d|s.ogg
+   n 보통 0.85배 / d 천천히 0.75배 (기본) / s 아주 천천히 0.7배 + 쉬어 가기 */
+let PACK=null;
+const packReady=fetch("voice/index.json").then(r=>r.ok?r.json():null).then(j=>{PACK=j;if(j&&state.settings.mode!=="guardian")state.settings.mode="voice";if(screen==="home")renderHome();}).catch(()=>{});
+const voiceMode=()=>!!PACK&&state.settings.mode!=="guardian";
+const recMode=()=>!PACK&&state.settings.mode==="rec"&&recReady();
+const guardian=()=>!voiceMode()&&!recMode()&&(state.settings.mode==="guardian"||!canTTS);
+let vAudio=null;
+function playVoice(path){
+  try{if(vAudio){vAudio.pause();vAudio.src="";}vAudio=new Audio("voice/"+path+".ogg");vAudio.play().catch(()=>{});}catch(e){}
+}
+const vSpd=(slow)=>slow?"s":(state.settings.vspeed||"d");
+function voicePath(c,slow){
+  if(!c)return null;
+  if(c.k==="sent")return `s/${c.id}_${slow?"s":"d"}`;
+  if(isMath(c.k)){const key=c.k==="mul"?`mul_${c.a}x${c.b}`:`add_${c.a}p${c.b}`;return PACK&&PACK.math.includes(key)?`x/${key}_${slow?"s":"d"}`:null;}
+  return `m/${c.t}_${vSpd(slow)}`;
+}
 function textFor(n){
   const st=state.settings.readStyle||"num";
   if(st==="num")return Number(n).toLocaleString("ko-KR")+"원";
@@ -815,6 +854,7 @@ function sayRaw(text,rate){
 }
 function speak(){
   if(guardian()||!state.cur)return;
+  if(voiceMode()){const p=voicePath(state.cur,state.cur.rp>=2);if(p)playVoice(p);return;}
   if(recMode()){playClips(clipsFor(state.cur.t),state.cur.rp>=2);return;}
   sayRaw(sayText(),curRate());
 }
@@ -952,7 +992,7 @@ const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Numbe
 function ensureToday(){
   const d=dkey();
   if(!state.today||state.today.date!==d){
-    state.today={date:d,count:0,doneShown:false,listen:freshTk(),read:freshTk(),add:freshTk(),mul:freshTk()};
+    state.today={date:d,count:0,doneShown:false,listen:freshTk(),sent:freshTk(),read:freshTk(),add:freshTk(),mul:freshTk()};
     const c=state.cur;if(c&&!SK(c.k).placement)state.cur=null;
   }
   ALLK.forEach(k=>{if(!state.today[k])state.today[k]=freshTk();});
@@ -965,9 +1005,16 @@ function streak(){
   return n;
 }
 const readOK=()=>!!SPEECH;
-const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&(k!=="read"||readOK()));return ks.length?ks:["listen"];};
+const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&(k!=="read"||readOK())&&(k!=="sent"||!!PACK));return ks.length?ks:["listen"];};
+const WEIGHT={listen:3,sent:2,read:1.5,add:1.5,mul:1.5};
 // 하루 문제를 고른 항목들에 고르게 나눔 (앞 항목부터 하나씩 더)
-function quotas(){const ks=SKILLS(),b=Math.floor(DAILY/ks.length),r=DAILY%ks.length,q={};ks.forEach((k,i)=>q[k]=b+(i<r?1:0));return q;}
+// 하루 문제를 비중대로 나눔 (듣고 쓰기 3 : 문장 듣기 2 : 나머지 1.5)
+function quotas(){
+  const ks=SKILLS(),tw=ks.reduce((a,k)=>a+WEIGHT[k],0),q={},rem=[];let sum=0;
+  ks.forEach(k=>{const x=DAILY*WEIGHT[k]/tw;q[k]=Math.floor(x);sum+=q[k];rem.push([x-q[k],k]);});
+  rem.sort((a,b)=>b[0]-a[0]);for(let i=0;sum<DAILY;i++,sum++)q[rem[i%rem.length][1]]++;
+  return q;
+}
 // 순서대로: 듣고 쓰기 → 보고 읽기 → 덧셈 → 곱셈. 다 풀고 더 풀면 5문제씩 돌아가며
 function skillFor(){
   const t=state.today,q=quotas(),ks=SKILLS();
@@ -981,8 +1028,9 @@ function nextSkill(){
 }
 
 /* ---------- 홈 ---------- */
-function lvName(k,lv){return isMath(k)?MLV[k][lv].nm:LV[lv].nm;}
+function lvName(k,lv){return isMath(k)?MLV[k][lv].nm:k==="sent"?SLV[lv].nm:LV[lv].nm;}
 function lvEx(k,lv){
+  if(k==="sent")return SLV[lv].ex;
   if(isMath(k)){const [a,b]=MLV[k][lv].ex;return `${mathText(k,a,b)} = ${Number(ansOf(k,a,b)).toLocaleString("ko-KR")}`;}
   const e=LV[lv].ex,n=Number(e).toLocaleString("ko-KR")+"원";
   return k==="read"?`${n} → "${toKo(e)} 원"`:`${toKo(e)} 원 → ${n}`;
@@ -1060,27 +1108,33 @@ if(document.getElementById("openTts")){
 }
 function renderSettings(){
   {const n=CLIPS.filter(c=>clipBuf.has(c)).length,opts=[];
-   if(canTTS)opts.push(["app","기계 음성"]);
-   if(recReady())opts.push(["rec","녹음 목소리"]);
+   if(PACK)opts.push(["voice","앱이 읽기"]);
+   else{if(canTTS)opts.push(["app","기계 음성"]);if(recReady())opts.push(["rec","녹음 목소리"]);}
    opts.push(["guardian","보호자가 직접"]);
    chips("modeRow",opts,"mode");
    const r=$("modeRow");r.querySelector("#recOpen")?.remove();
+   if(PACK)return renderSettingsRest();
    const b=document.createElement("button");b.type="button";b.className="chip";b.id="recOpen";
    b.textContent=n===0?"🎙 목소리 녹음하기":n<CLIPS.length?`🎙 녹음 이어 하기 (${n}/${CLIPS.length})`:"🎙 녹음 다시 듣기·고치기";
    b.onclick=()=>openRec();r.appendChild(b);}
+  renderSettingsRest();
+}
+function renderSettingsRest(){
   if(LN)renderRemind();else $("remindRow").hidden=true;
-  chips("dailyRow",[[10,"10개"],[15,"15개"],[20,"20개"],[30,"30개"],[40,"40개"]],"daily");
+  chips("dailyRow",[[20,"20개"],[30,"30개"],[40,"40개"],[50,"50개"]],"daily");
   {const row=$("partsRow");row.querySelectorAll(".chip").forEach(c=>c.remove());const P=state.settings.parts;
-   ALLK.filter(k=>k!=="read"||readOK()).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
+   ALLK.filter(k=>(k!=="read"||readOK())&&(k!=="sent"||!!PACK)).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
      b.textContent=`${TICON[k]} ${TNAME[k]}`;b.setAttribute("aria-pressed",P[k]!==false);
      b.onclick=()=>{const on=P[k]!==false;if(on&&SKILLS().length<=1)return;P[k]=!on;save();renderHome();};row.appendChild(b);});}
+  $("styleRow").hidden=$("engineRow").hidden=!!PACK;
+  if(PACK){chips("rateRow",[["s","아주 천천히"],["d","천천히"],["n","보통"]],"vspeed");$("rateRow").querySelector(".lab").textContent="읽는 속도 · 두 번째 다시 듣기부터는 아주 천천히";}
   chips("styleRow",[["num","자연스럽게 (숫자로)"],["spaced","또박또박 (띄어서)"],["ko","한글 그대로"]],"readStyle");
   $("styleRow").querySelectorAll(".chip").forEach(b=>{const f=b.onclick;b.onclick=()=>{f();if(!guardian())sayRaw(textFor(9810),state.settings.rate);};});
-  chips("rateRow",TTS?[[.45,"아주 천천히"],[.6,"천천히"],[.8,"보통"]]:[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
+  if(!PACK)chips("rateRow",TTS?[[.45,"아주 천천히"],[.6,"천천히"],[.8,"보통"]]:[[.6,"아주 천천히"],[.75,"천천히"],[.95,"보통"]],"rate");
   chips("commaRow",[[true,"자동으로 찍기"],[false,"안 찍기"]],"comma");
   chips("sfxRow",[[true,"켜기"],[false,"끄기"]],"sfx");
   document.querySelectorAll(".stepper[data-k]").forEach(el=>{const k=el.dataset.k,s=SK(k);
-    el.hidden=k==="read"&&!readOK();el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
+    el.hidden=(k==="read"&&!readOK())||(k==="sent"&&!PACK);el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
     el.querySelectorAll("button").forEach(b=>b.onclick=()=>{if(s.level==null)return;const v=s.level+ +b.dataset.d;if(v<1||v>MAXOF(k))return;
       s.level=v;s.win=[];s.since=0;save();renderHome();});});
   $("wipe").textContent=wipeArmed?"정말 지울까요? 한 번 더 누르세요":"기록 모두 지우기";
@@ -1105,6 +1159,14 @@ function newQ(skipIntro){
   state.lastSkill=k;
   if(s.level==null&&!s.placement)s.placement={lv:startLv(k),hist:[]};
   const P=s.placement,lv=P?P.lv:s.level;
+  if(k==="sent"){
+    const pool=PACK.sent[lv]||PACK.sent[1],recent=s.recent||(s.recent=[]);
+    let q;for(let i=0;i<30;i++){q=pool[Math.floor(Math.random()*pool.length)];if(!recent.includes(q.id))break;}
+    s.recent=recent.concat(q.id).slice(-60);
+    state.cur={k,id:q.id,items:q.items,ask:q.ask,t:q.items[q.ask][1],lv,tries:0,rv:false,rp:0};
+    input="";save();$("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
+    show("play");setTimeout(speak,250);return;
+  }
   if(isMath(k)){
     const [a,b]=pickMath(k,lv,state.cur&&state.cur.k===k?[state.cur.a,state.cur.b]:null);
     state.cur={k,a,b,t:ansOf(k,a,b),lv,tries:0,rv:false,t0:Date.now()};
@@ -1120,14 +1182,14 @@ function newQ(skipIntro){
   show("play");setTimeout(speak,250);
 }
 // 듣고 쓰기 ↔ 보고 읽기가 바뀔 때 안내
-const startLv=k=>k==="mul"?1:k==="add"?2:4;
+const startLv=k=>k==="mul"||k==="sent"?1:k==="add"?2:4;
 function showIntro(k){
   const s=SK(k),test=s.level==null||(s.placement&&!s.placement.hist.length);
   const R=k==="read";
   $("placed").innerHTML=`<div class="card center intro">
     <div class="iic">${TICON[k]}</div>
     <h2>${state.today.count?"이번엔 ":""}${TNAME[k]}${state.today.count?(isMath(k)?"이에요":"예요"):"부터 해요"}</h2>
-    <div>${k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
+    <div>${k==="sent"?"짧은 문장을 듣고, 물어보는 물건의 가격을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
     ${test?`<div class="sub">먼저 실력 확인 ${TN(k)}문제로 시작 레벨을 정해요.</div>`:""}
     <button class="btn" type="button" id="introGo" style="width:100%">시작</button>
     <button class="link" type="button" id="introHome">처음 화면으로</button></div>`;
@@ -1139,13 +1201,24 @@ function progInfo(){
   if(P)return[`${nm}실력 확인 <b>${Math.min(P.hist.length+1,TN(k))}</b> / ${TN(k)}`,P.hist.length/TN(k)*100];
   return[n<DAILY?`<b>${n+1}</b> / ${DAILY} · ${nm}레벨 ${s.level}`:`더 풀기 <b>${n+1-DAILY}</b> · ${nm}레벨 ${s.level}`,Math.min(n/DAILY,1)*100];
 }
+function sentHTML(c,mark){
+  const nm=w=>w+josaJS(w,"은","는"),wn=v=>Number(v).toLocaleString("ko-KR")+"원",it=c.items;
+  const b=(i,x)=>mark&&i===c.ask?`<b class="hl">${x}</b>`:x;
+  let body;
+  if(it.length===1)body=`${b(0,nm(it[0][0])+" "+wn(it[0][1]))}이에요.`;
+  else if(it.length===2)body=`${b(0,nm(it[0][0])+" "+wn(it[0][1]))}이고, ${b(1,nm(it[1][0])+" "+wn(it[1][1]))}이에요. ${nm(it[c.ask][0])} 얼마예요?`;
+  else body=`${it.map((x,i)=>b(i,nm(x[0])+" "+wn(x[1]))).join(", ")}이에요. ${nm(it[c.ask][0])} 얼마예요?`;
+  return body;
+}
+function josaJS(w,a,b){const c=w.charCodeAt(w.length-1)-0xAC00;return c>=0&&c<=11171&&c%28?a:b;}
 function renderPlay(){
   const c=state.cur,[info,w]=progInfo();
   $("pinfo").innerHTML=info;$("pbar").style.width=w+"%";
   const g=guardian();
   $("speak").querySelector("span").textContent=c&&c.rp>=1?"천천히":"듣기";
   $("speak").hidden=g;$("gbox").hidden=!g;
-  if(c)$("gtext").textContent=toKo(c.t)+" 원";
+  if(c){if(c.k==="sent")$("gtext").innerHTML=sentHTML(c,false);else $("gtext").textContent=toKo(c.t)+" 원";}
+  $("gbox").querySelector(".ghint").textContent=c&&c.k==="sent"?"보호자가 문장을 읽어 주세요":"보호자가 읽어 주세요";
   const nm=$("num");nm.textContent=input?fmt(input):"0";nm.classList.toggle("empty",!input);
   $("go").disabled=!input;
   $("showAns").hidden=!(c&&c.tries>0&&!c.rv);
@@ -1153,7 +1226,7 @@ function renderPlay(){
   const rv=$("rev");rv.hidden=!(c&&c.rv);
   if(c&&c.rv){
     const s=String(c.t);
-    rv.innerHTML=`<div class="revtop"><span class="sub">정답</span><b class="big">${fmt(c.t)}원</b><span class="ko">${toKo(c.t)} 원</span></div>
+    rv.innerHTML=`${c.k==="sent"?`<div class="sline">${sentHTML(c,true)}</div>`:""}<div class="revtop"><span class="sub">정답</span><b class="big">${fmt(c.t)}원</b><span class="ko">${toKo(c.t)} 원</span></div>
       <div class="cols">${s.split("").map((d,i)=>`<div class="col${d==="0"?" z":""}"><span class="d">${d}</span><span class="p">${PLACE[s.length-1-i]}</span></div>`).join("")}</div>`;
   }
 }
@@ -1175,7 +1248,7 @@ function check(){
   if(busy||!input||!state.cur)return;
   const c=state.cur;
   if(+input===c.t)return onCorrect();
-  if(c.tries===0&&!c.rv)learn("listen",c.t,input);
+  if(c.tries===0&&!c.rv){if(c.k==="sent")learnSent(c,input);else learn("listen",c.t,input);}
   c.tries++;save();busy=true;
   const a=$("answer");a.className="answer no";a.classList.remove("shake");void a.offsetWidth;a.classList.add("shake");
   $("msg").textContent=c.rv?"정답을 보고 다시 써 보세요":guardian()?"보호자가 한 번 더 읽어 주세요":"다시 들어 보세요 🔊";
@@ -1193,7 +1266,8 @@ function onCorrect(){
   const c=state.cur,k=c.k,first=c.tries===0&&!c.rv;busy=true;
   if(k==="listen")$("answer").className="answer ok";
   if(isMath(k))$("cAns").className="answer ok";
-  if(first&&!isMath(k))learn(k,c.t,null);
+  if(first&&k==="sent")learnSent(c,null);
+  else if(first&&!isMath(k))learn(k,c.t,null);
   const ch=record(scoreOf(c));
   chime();
   overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":isMath(k)?"잘했어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
@@ -1253,7 +1327,7 @@ function renderCalc(){
   $("cGo").disabled=!input;
   $("cShow").hidden=!(c.tries>0&&!c.rv);
   $("cSkip").hidden=!c.rv;
-  $("cSpeak").hidden=guardian();
+  $("cSpeak").hidden=guardian()||(voiceMode()&&!voicePath(c,false));
   const rv=$("cRev");rv.hidden=!c.rv;
   if(c.rv){
     let h=`<div class="revtop"><span class="sub">정답</span><b class="big">${mathText(c.k,c.a,c.b)} = ${Number(c.t).toLocaleString("ko-KR")}</b></div>`;
@@ -1293,7 +1367,7 @@ function bindCalc(){
   $("cBack").onclick=()=>show("home");
   $("cShow").onclick=()=>{if(!state.cur)return;state.cur.rv=true;input="";$("cMsg").textContent="";save();renderCalc();};
   $("cSkip").onclick=()=>{if(busy||!state.cur)return;const k=state.cur.k;record(0);advance(k);};
-  $("cSpeak").onclick=()=>{const c=state.cur;if(!c)return;sayRaw(`${toKo(c.a)} ${c.k==="add"?"더하기":"곱하기"} ${toKo(c.b)}`,state.settings.rate);};
+  $("cSpeak").onclick=()=>{const c=state.cur;if(!c)return;if(voiceMode()){const p=voicePath(c,false);if(p)playVoice(p);return;}sayRaw(`${toKo(c.a)} ${c.k==="add"?"더하기":"곱하기"} ${toKo(c.b)}`,state.settings.rate);};
   window.addEventListener("resize",()=>{if(screen==="calc")fitQ();});
 }
 
@@ -1449,8 +1523,8 @@ function showDone(){
 /* ---------- 기록 ---------- */
 let statK="listen";
 function renderStats(){
-  const tabs=$("stTabs");if(statK==="read"&&!readOK())statK="listen";
-  tabs.querySelectorAll("button").forEach(b=>{b.hidden=b.dataset.t==="read"&&!readOK();b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
+  const tabs=$("stTabs");if((statK==="read"&&!readOK())||(statK==="sent"&&!PACK))statK="listen";
+  tabs.querySelectorAll("button").forEach(b=>{b.hidden=(b.dataset.t==="read"&&!readOK())||(b.dataset.t==="sent"&&!PACK);b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
   const k=statK,s=SK(k);
   const keys=Object.keys(state.days).filter(d=>state.days[d][k]&&state.days[d][k].n).sort(),ds=keys.map(d=>state.days[d][k]);
   const tot=ds.reduce((a,d)=>a+d.n,0),ok=ds.reduce((a,d)=>a+d.ok,0);
