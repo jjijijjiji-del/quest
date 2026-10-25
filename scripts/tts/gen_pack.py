@@ -251,6 +251,19 @@ def check_money(text, v):
     return bool(rs) and parse_run(max(rs, key=len)) == v
 
 
+from difflib import SequenceMatcher
+import re as _re
+
+
+def name_ok(name, word):
+    """받아 적기에서 흔한 표기 차이를 봐줌 (돈가스→돈까스, 칫솔→치솔, 오이→5위)"""
+    if not word:
+        return False
+    if len(name) == 1:
+        return True
+    return name in word or SequenceMatcher(None, name, word).ratio() >= 0.5
+
+
 def check_sentence(text, q):
     t = clean(text)
     if "원" not in t:
@@ -266,21 +279,22 @@ def check_sentence(text, q):
     if prices[:len(want)] != want:
         return False
     if len(want) > 1:
-        tail = segs[-1]
-        name = q["items"][q["ask"]][0]
-        if name not in tail or "얼마" not in tail:
+        # 질문에 상품 이름이 빠지지 않았는지 (이번에 고치려는 오류)
+        if "얼마" not in segs[-1]:
             return False
-    for it in q["items"]:
-        if it[0] not in t:
+        pre = segs[-1].split("얼마")[0]
+        pre = _re.sub(r"^(이에요|에요|예요|이고|이요)", "", pre)
+        word = _re.sub(r"[은는]$", "", pre)
+        if not name_ok(q["items"][q["ask"]][0], word):
             return False
     return True
 
 
 def check_math(text, a, b, op):
     t = clean(text)
-    if op not in t and ("×" if op == "곱하기" else "+") not in t and "x" not in t.lower():
+    if "기" not in t and "×" not in t and "+" not in t and "x" not in t.lower():
         return False
-    vals = [parse_run(r) for r in runs(t.replace(op, "|"))]
+    vals = [parse_run(r) for r in runs(_re.sub(r"(곱|고|급|더|도|드|두)[가-힣]{0,2}기", "|", t))]
     return vals[:2] == [a, b]
 
 
@@ -321,14 +335,18 @@ def sentence_parts(q, slow):
 TRIES = [(0, 10), (.02, 12), (.04, 8), (0, 14), (.03, 6), (.01, 12), (.05, 10)]
 
 
-def main(shard, nshard, only=None):
+# 받아 적을 때 숫자를 한글로 적도록 유도 (아라비아 숫자로 바꾸면서 생기는 오류를 줄임)
+PROMPT = "숫자는 한글로 적습니다. 구천팔백십 원. 삼백육만 원. 만사백 원. 칠 곱하기 팔. 육 더하기 육."
+
+
+def main(shard, nshard, only=None, recheck_dir=None):
     import numpy as np, soundfile as sf
     from supertonic import TTS
     from faster_whisper import WhisperModel
     tts = TTS(auto_download=True)
     sr = getattr(tts, "sample_rate", None) or 44100
     style = tts.get_voice_style(voice_name=VOICE)
-    asr = WhisperModel("small", device="cpu", compute_type="int8")
+    asr = WhisperModel("large-v3" if only is not None else "small", device="cpu", compute_type="int8")
 
     def synth(text, sp, steps=10):
         w, _ = tts.synthesize(text, voice_style=style, lang="ko", total_steps=steps, speed=max(0.7, sp), silence_duration=0.15)
@@ -344,7 +362,7 @@ def main(shard, nshard, only=None):
         if sr != 16000:
             n = int(len(w) * 16000 / sr)
             x = np.interp(np.linspace(0, len(w) - 1, n), np.arange(len(w)), w).astype(np.float32)
-        segs, _ = asr.transcribe(x, language="ko", beam_size=3, vad_filter=False, condition_on_previous_text=False)
+        segs, _ = asr.transcribe(x, language="ko", beam_size=3, vad_filter=False, condition_on_previous_text=False, initial_prompt=PROMPT)
         return " ".join(s.text for s in segs).strip()
 
     jobs, _, _ = all_jobs()
@@ -352,8 +370,29 @@ def main(shard, nshard, only=None):
     tries = TRIES if only is not None else TRIES[:5]
     report = []
     errors = 0
+    def check(kind, heard, val):
+        if kind == "money":
+            return check_money(heard, val)
+        if kind == "sent":
+            return check_sentence(heard, val)
+        return check_math(heard, *val)
+
+    rechecked = 0
     for i, (name, texts, sv, kind, val) in enumerate(mine):
         ok, heard, w = False, "", None
+        if recheck_dir:
+            src = f"{recheck_dir}/{name}.ogg"
+            if os.path.exists(src):
+                tmp = "/tmp/rc.wav"
+                subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", src, "-ac", "1", "-ar", "16000", tmp], check=True)
+                x, _ = sf.read(tmp, dtype="float32")
+                segs, _ = asr.transcribe(x, language="ko", beam_size=3, condition_on_previous_text=False, initial_prompt=PROMPT)
+                heard = " ".join(sg.text for sg in segs).strip()
+                if check(kind, heard, val):
+                    rechecked += 1
+                    report.append({"name": name, "ok": True, "tries": 0, "heard": heard, "text": " / ".join(texts)})
+                    print(i, len(mine), name, "RECHECK OK |", " / ".join(texts), "→", heard, flush=True)
+                    continue
         for attempt in range(len(tries)):
           try:
               dsp, steps = tries[attempt]
@@ -366,12 +405,7 @@ def main(shard, nshard, only=None):
               w = np.concatenate(parts)
               w = w / max(np.abs(w).max(), 1e-6) * 0.92
               heard = hear(w)
-              if kind == "money":
-                  ok = check_money(heard, val)
-              elif kind == "sent":
-                  ok = check_sentence(heard, val)
-              else:
-                  ok = check_math(heard, *val)
+              ok = check(kind, heard, val)
               if ok:
                   break
           except Exception as e:
@@ -390,6 +424,7 @@ def main(shard, nshard, only=None):
         if i % 50 == 0 or not ok:
             print(i, len(mine), name, "OK" if ok else "FAIL", attempt + 1, "|", " / ".join(texts), "→", heard, flush=True)
 
+    os.makedirs(WAV, exist_ok=True)
     subprocess.run(f"cd {WAV} && find . -name '*.wav' | sed 's/\\.wav$//' | xargs -P 4 -I{{}} sh -c "
                    f"'mkdir -p ../{OUT}/$(dirname {{}}) && ffmpeg -loglevel error -y -i {{}}.wav -ac 1 -ar 24000 -c:a libopus -b:a 24k ../{OUT}/{{}}.ogg'",
                    shell=True, check=True)
@@ -397,6 +432,8 @@ def main(shard, nshard, only=None):
     with open(f"report/shard{shard}.json", "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=0)
     bad = [r for r in report if not r["ok"]]
+    if recheck_dir:
+        print(f"::notice::고치기 {shard}: {len(report)}개 중 다시 들어 보니 맞은 것 {rechecked}개, 다시 만들어 맞은 것 {sum(r['ok'] and r['tries'] > 0 for r in report)}개, 여전히 실패 {len(bad)}개", flush=True)
     print(f"::notice::shard {shard}: {len(report)}개, 다시 만든 것 {sum(r['tries'] > 1 for r in report)}개, 검사 실패 {len(bad)}개, 오류 {errors}번", flush=True)
     print(f"shard {shard}: {len(report)} clips, retried {sum(r['tries'] > 1 for r in report)}, still failing {len(bad)}")
 
@@ -419,8 +456,10 @@ if __name__ == "__main__":
         main(int(sys.argv[3]), int(sys.argv[4]))
     elif cmd == "repair":
         # 검사에서 실패했던 소리만 다시 만들기: gen_pack.py voice repair failures.json
-        names = {r["name"] for r in json.load(open(sys.argv[3], encoding="utf-8"))}
-        main(0, 1, only=names)
+        # gen_pack.py out repair failures.json 0 4 old_voice_dir
+        names = sorted(r["name"] for r in json.load(open(sys.argv[3], encoding="utf-8")))
+        k, n = int(sys.argv[4]), int(sys.argv[5])
+        main(k, n, only=set(names[k::n]), recheck_dir=sys.argv[6])
     elif cmd == "index":
         write_index()
     else:
