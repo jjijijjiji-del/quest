@@ -834,8 +834,10 @@ function playVoice(path){
 const vSpd=(slow)=>slow?"s":(state.settings.vspeed||"d");
 function voicePath(c,slow){
   if(!c)return null;
-  if(c.k==="sent")return `s/${c.id}_${slow?"s":"d"}`;
-  if(isMath(c.k)){const key=c.k==="mul"?`mul_${c.a}x${c.b}`:`add_${c.a}p${c.b}`;return PACK&&PACK.math.includes(key)?`x/${key}_${slow?"s":"d"}`:null;}
+  // 문장·계산은 보통/천천히 구분 없이 하나(d)만 있어서, 아주 천천히(s)만 따로 고름
+  const sv=(slow||state.settings.vspeed==="s")?"s":"d";
+  if(c.k==="sent")return `s/${c.id}_${sv}`;
+  if(isMath(c.k)){const key=c.k==="mul"?`mul_${c.a}x${c.b}`:`add_${c.a}p${c.b}`;return PACK&&PACK.math.includes(key)?`x/${key}_${sv}`:null;}
   return `m/${c.t}_${vSpd(slow)}`;
 }
 function textFor(n){
