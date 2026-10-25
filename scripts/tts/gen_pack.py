@@ -319,7 +319,10 @@ def sentence_parts(q, slow):
 
 
 # ---------- 소리 만들기 ----------
-def main(shard, nshard):
+TRIES = [(0, 10), (.02, 12), (.04, 8), (0, 14), (.03, 6), (.01, 12), (.05, 10)]
+
+
+def main(shard, nshard, only=None):
     from supertonic import TTS
     from faster_whisper import WhisperModel
     tts = TTS(auto_download=True)
@@ -327,8 +330,8 @@ def main(shard, nshard):
     style = tts.get_voice_style(voice_name=VOICE)
     asr = WhisperModel("small", device="cpu", compute_type="int8")
 
-    def synth(text, sp):
-        w, _ = tts.synthesize(text, voice_style=style, lang="ko", total_steps=10, speed=sp, silence_duration=0.15)
+    def synth(text, sp, steps=10):
+        w, _ = tts.synthesize(text, voice_style=style, lang="ko", total_steps=steps, speed=max(0.7, sp), silence_duration=0.15)
         w = np.asarray(w, dtype=np.float32).reshape(-1)
         a = np.abs(w)
         idx = np.where(a > 0.01 * max(a.max(), 1e-6))[0]
@@ -345,19 +348,21 @@ def main(shard, nshard):
         return " ".join(s.text for s in segs).strip()
 
     jobs, _, _ = all_jobs()
-    mine = jobs[shard::nshard]
+    mine = [j for j in jobs if j[0] in only] if only is not None else jobs[shard::nshard]
+    tries = TRIES if only is not None else TRIES[:5]
     report = []
     errors = 0
     for i, (name, texts, sv, kind, val) in enumerate(mine):
         ok, heard, w = False, "", None
-        for attempt in range(5):
+        for attempt in range(len(tries)):
           try:
-              sp = SPEED[sv] + [0, -.02, .02, -.04, .04][attempt]
+              dsp, steps = tries[attempt]
+              sp = SPEED[sv] + dsp
               parts = []
               for j, t in enumerate(texts):
                   if j:
                       parts.append(np.zeros(int(sr * (.7 if sv == "c" else .5)), dtype=np.float32))
-                  parts.append(synth(t, sp))
+                  parts.append(synth(t, sp, steps))
               w = np.concatenate(parts)
               w = w / max(np.abs(w).max(), 1e-6) * 0.92
               heard = hear(w)
@@ -412,6 +417,10 @@ if __name__ == "__main__":
     cmd = sys.argv[2] if len(sys.argv) > 2 else "dry"
     if cmd == "shard":
         main(int(sys.argv[3]), int(sys.argv[4]))
+    elif cmd == "repair":
+        # 검사에서 실패했던 소리만 다시 만들기: gen_pack.py voice repair failures.json
+        names = {r["name"] for r in json.load(open(sys.argv[3], encoding="utf-8"))}
+        main(0, 1, only=names)
     elif cmd == "index":
         write_index()
     else:

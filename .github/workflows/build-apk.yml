@@ -7,9 +7,10 @@ on:
       - "scripts/tts/**"
       - ".github/workflows/tts-samples.yml"
       - ".github/workflows/voice-pack.yml"
+      - ".github/workflows/voice-repair.yml"
   workflow_dispatch:
   workflow_run:
-    workflows: ["음성 팩 만들기"]
+    workflows: ["음성 팩 만들기", "음성 팩 고치기"]
     types: [completed]
 
 permissions:

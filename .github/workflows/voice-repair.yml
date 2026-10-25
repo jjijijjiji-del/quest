@@ -1,0 +1,50 @@
+name: 음성 팩 고치기
+
+# 검사에서 실패했던 소리만 다시 만들어 음성 팩에 덮어씀
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 설치
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          pip install supertonic faster-whisper soundfile numpy
+      - name: 지금 음성 팩 받기
+        run: |
+          gh release download voice-pack -R ${{ github.repository }} -p voice-pack.zip -p voice-check-failures.json -D .
+          unzip -q voice-pack.zip
+          python -c "import json;print(len(json.load(open('voice-check-failures.json'))),'개 다시 만들기')"
+      - name: 실패한 소리만 다시 만들기
+        run: python scripts/tts/gen_pack.py voice repair voice-check-failures.json
+      - name: 묶기
+        run: |
+          python - <<'PY'
+          import json
+          rs=json.load(open("report/shard0.json"))
+          bad=[r for r in rs if not r["ok"]]
+          print(f"다시 만든 {len(rs)}개 중 여전히 실패 {len(bad)}개")
+          for r in bad: print("FAIL", r["name"], "|", r["text"], "→", r["heard"])
+          json.dump(bad,open("voice-check-failures.json","w"),ensure_ascii=False,indent=1)
+          print(f"::notice::다시 만든 {len(rs)}개 중 여전히 실패 {len(bad)}개")
+          PY
+          rm voice-pack.zip && zip -qr voice-pack.zip voice
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: voice-pack
+          files: |
+            voice-pack.zip
+            voice-check-failures.json
+          make_latest: false

@@ -2,11 +2,6 @@ name: 음성 팩 만들기
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "scripts/tts/gen_pack.py"
-      - ".github/workflows/voice-pack.yml"
 
 permissions:
   contents: write
