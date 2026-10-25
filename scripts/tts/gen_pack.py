@@ -7,7 +7,6 @@ Supertonic F1 목소리로 앱에서 쓸 소리를 모두 미리 만든다.
 index.json 에 레벨별 금액 묶음과 문장 문제 목록을 담는다.
 """
 import json, os, random, sys, subprocess, traceback
-import numpy as np, soundfile as sf
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "voice"
 WAV = OUT + "_wav"
@@ -323,6 +322,7 @@ TRIES = [(0, 10), (.02, 12), (.04, 8), (0, 14), (.03, 6), (.01, 12), (.05, 10)]
 
 
 def main(shard, nshard, only=None):
+    import numpy as np, soundfile as sf
     from supertonic import TTS
     from faster_whisper import WhisperModel
     tts = TTS(auto_download=True)

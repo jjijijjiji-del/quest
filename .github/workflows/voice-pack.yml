@@ -43,6 +43,7 @@ jobs:
           path: parts
       - name: 합치기
         run: |
+          pip install numpy soundfile >/dev/null
           mkdir -p voice report
           for d in parts/part-*; do cp -r $d/voice/. voice/; cp -r $d/report/. report/; done
           python scripts/tts/gen_pack.py voice index
