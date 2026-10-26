@@ -96,5 +96,37 @@ def speeds():
             print("wrote", v, sp, len(w) / sr)
 
 
+
+
+def natural():
+    """듣고 쓰기 금액을 사람처럼 끊어 읽기 — 세 가지 방식 비교 (모두 0.7배)"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from gen_pack import to_ko, natural_parts, cap_pauses
+    from supertonic import TTS
+    tts = TTS(auto_download=True)
+    sr = getattr(tts, "sample_rate", None) or 44100
+    style = tts.get_voice_style(voice_name="F1")
+
+    def say(t):
+        w, _ = tts.synthesize(t, voice_style=style, lang="ko", total_steps=10, speed=0.7, silence_duration=0.15)
+        return trim(np.asarray(w, dtype=np.float32).reshape(-1), sr)
+
+    amounts = [205880, 34500, 4000500, 3270500, 128000, 9810, 70350]
+    for n in amounts:
+        print(n, to_ko(n), "|", " / ".join(natural_parts(n)))
+    for name, f in [
+        ("1-지금(쉼없이)", lambda n: say(f"{to_ko(n)} 원")),
+        ("2-쉼표로-끊기", lambda n: cap_pauses(say(", ".join(natural_parts(n)) + " 원"), sr, 0.25)),
+        ("3-조각-이어붙이기", lambda n: np.concatenate(sum([[say(p + (" 원" if i == len(natural_parts(n)) - 1 else "")), gap(sr, 0.22)] for i, p in enumerate(natural_parts(n))], [])[:-1])),
+    ]:
+        parts = []
+        for n in amounts:
+            parts += [f(n), gap(sr, 1.3)]
+        w = np.concatenate(parts)
+        w = w / max(np.abs(w).max(), 1e-6) * 0.9
+        sf.write(f"{OUT}/{name}.wav", w, sr)
+        print("wrote", name, len(w) / sr)
+
+
 if __name__ == "__main__":
-    {"supertonic": supertonic, "melo": melo, "speeds": speeds}[sys.argv[1]]()
+    {"supertonic": supertonic, "melo": melo, "speeds": speeds, "natural": natural}[sys.argv[1]]()

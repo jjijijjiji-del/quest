@@ -51,6 +51,48 @@ def to_ko_parts(n):
     return ", ".join(parts)
 
 
+def natural_parts(n):
+    """사람이 말하듯 끊어 읽기: 205880 → ['이십만', '오천', '팔백팔십'], 34500 → ['삼만', '사천오백'], 9810 → ['구천팔백십']"""
+    m, r = n // 10000, n % 10000
+    if not m:
+        return [u4(r)]
+    parts = [("" if m == 1 else u4(m)) + "만"]
+    th, rest = r // 1000, r % 1000
+    if th and sum(c != "0" for c in str(rest)) >= 2:
+        parts += [("" if th == 1 else DN[th]) + "천", u4(rest)]
+    elif r:
+        parts.append(u4(r))
+    return parts
+
+
+def cap_pauses(w, sr, cap=0.25, th=0.02):
+    """말 사이 조용한 구간을 cap초로 줄임 (앞뒤는 그대로)"""
+    import numpy as np
+    f = int(sr * .02)
+    n = len(w) // f
+    if n < 3:
+        return w
+    lv = np.abs(w[:n * f]).reshape(n, f).max(axis=1)
+    loud = lv > th * max(lv.max(), 1e-6)
+    idx = np.where(loud)[0]
+    if not len(idx):
+        return w
+    keep = int(cap / .02)
+    out, i = [w[:idx[0] * f]], idx[0]
+    while i <= idx[-1]:
+        j = i
+        while j <= idx[-1] and loud[j] == loud[i]:
+            j += 1
+        seg = w[i * f:j * f]
+        if not loud[i] and (j - i) > keep:
+            h = keep // 2
+            seg = np.concatenate([seg[:h * f], seg[-(keep - h) * f:]])
+        out.append(seg)
+        i = j
+    out.append(w[(idx[-1] + 1) * f:])
+    return np.concatenate(out)
+
+
 def josa(word, a, b):
     """받침 있으면 a(은/이), 없으면 b(는/가)"""
     c = ord(word[-1]) - 0xAC00
