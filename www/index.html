@@ -308,7 +308,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
       <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
       <div class="row" id="dailyRow"><span class="lab">하루 문제 수</span></div>
-      <div class="row" id="partsRow"><span class="lab">오늘 문제에 넣을 것 · 듣고 쓰기에 가장 많이, 문장 듣기에 그다음으로 많이 나눠요</span></div>
+      <div class="row" id="partsRow"><span class="lab">오늘 문제에 넣을 것 · 듣고 쓰기·문장 듣기를 기본으로 많이 내고, 최근 점수가 낮은 항목은 늘리고 높은 항목은 줄여요 (항목마다 최소 2문제)</span></div>
       <div class="row" id="styleRow"><span class="lab">읽는 방식 · 누르면 예시(9,810원)를 읽어 줘요</span></div>
       <div class="row" id="engineRow"><span class="lab">발음이 이상하면 폰의 음성 엔진이나 목소리를 바꿔 보세요</span><button class="chip" type="button" id="openTts">음성 엔진 설정 열기</button></div>
       <div class="row" id="rateRow"><span class="lab">읽는 속도</span></div>
@@ -746,6 +746,10 @@ try{const r=JSON.parse(localStorage.getItem(KEY)||"null");
   if(r&&r.v===3)state=Object.assign(fresh(),r,{settings:Object.assign(fresh().settings,r.settings)});
   else if(r&&r.v===2)state=migrate(r);
   ALLK.forEach(k=>state.skills[k]=Object.assign(freshSkill(),state.skills[k]||{}));
+  ALLK.forEach(k=>{const s=state.skills[k];if(s.hist)return;const h=[];
+    Object.keys(state.days||{}).sort().forEach(d=>{const x=(state.days[d]||{})[k];if(!x||!x.n)return;
+      const r=(x.ok+.5*(x.part||0))/x.n;for(let i=0;i<Math.min(x.n,10);i++)h.push(+r.toFixed(2));});
+    s.hist=h.slice(-30);});
   state.settings.parts=Object.assign({listen:true,sent:true,read:true,add:true,mul:true},state.settings.parts||{});
   if(!state.settings.d30){state.settings.d30=true;if((state.settings.daily||20)<30)state.settings.daily=30;}
 }catch(e){}
@@ -1011,10 +1015,34 @@ const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!
 const WEIGHT={listen:3,sent:2,read:1.5,add:1.5,mul:1.5};
 // 하루 문제를 고른 항목들에 고르게 나눔 (앞 항목부터 하나씩 더)
 // 하루 문제를 비중대로 나눔 (듣고 쓰기 3 : 문장 듣기 2 : 나머지 1.5)
+/* 실력에 따라 문제 수 조절
+   최근 30문제 점수 평균이 낮을수록 많이, 높을수록 적게 (0.4배 ~ 1.6배)
+   최고 레벨에서 90% 넘게 맞히면 더 줄임. 그래도 항목마다 최소 2문제(하루의 약 8%)는 남김 */
+function skillNeed(k){
+  const s=SK(k),h=(s.hist||[]).slice(-30);
+  if(s.level==null||h.length<8)return 1;
+  const avg=h.reduce((a,b)=>a+b,0)/h.length;
+  let f=.5+1.5*(1-avg);
+  if(s.level>=MAXOF(k)&&avg>=.9)f*=.6;
+  return Math.max(.4,Math.min(1.6,f));
+}
+function split(ks,total,w,min){
+  const q={},rem=[];let sum=0;
+  ks.forEach(k=>{q[k]=min;sum+=min;});
+  const left=Math.max(0,total-sum),tw=ks.reduce((a,k)=>a+w[k],0);
+  ks.forEach(k=>{const x=left*w[k]/tw;const f=Math.floor(x);q[k]+=f;sum+=f;rem.push([x-f,k]);});
+  rem.sort((a,b)=>b[0]-a[0]);for(let i=0;sum<total;i++,sum++)q[rem[i%rem.length][1]]++;
+  return q;
+}
+const baseQuotas=()=>{const ks=SKILLS();return split(ks,DAILY,WEIGHT,0);};
+// 그날 첫 문제를 풀 때 정한 배분을 하루 동안 유지
 function quotas(){
-  const ks=SKILLS(),tw=ks.reduce((a,k)=>a+WEIGHT[k],0),q={},rem=[];let sum=0;
-  ks.forEach(k=>{const x=DAILY*WEIGHT[k]/tw;q[k]=Math.floor(x);sum+=q[k];rem.push([x-q[k],k]);});
-  rem.sort((a,b)=>b[0]-a[0]);for(let i=0;sum<DAILY;i++,sum++)q[rem[i%rem.length][1]]++;
+  const ks=SKILLS(),t=state.today,sig=ks.join()+"|"+DAILY;
+  if(t&&t.quota&&t.quota.sig===sig)return t.quota.q;
+  const min=Math.min(Math.max(2,Math.round(DAILY*.08)),Math.floor(DAILY/ks.length));
+  const w={};ks.forEach(k=>w[k]=WEIGHT[k]*skillNeed(k));
+  const q=split(ks,DAILY,w,min);
+  if(t&&t.count>0)t.quota={sig,q};
   return q;
 }
 // 순서대로: 듣고 쓰기 → 보고 읽기 → 덧셈 → 곱셈. 다 풀고 더 풀면 5문제씩 돌아가며
@@ -1055,7 +1083,10 @@ function renderHome(){
   const first=SKILLS().some(k=>SK(k).level==null);
   qc.innerHTML=`<div class="qhead"><h2>오늘의 문제</h2><div class="qcount">${c}<small> / ${DAILY}</small></div></div>
     <div class="dots" style="grid-template-columns:repeat(${Math.min(DAILY,15)},1fr)">${(()=>{const q=quotas(),out=[];SKILLS().forEach(k=>{for(let i=0;i<q[k];i++)out.push(`<i class="d-${k}${i<Math.min(t[k].n,q[k])?" on":""}"></i>`);});return out.join("");})()}</div>
-    ${SKILLS().length>1?`<div class="sub">${SKILLS().map(k=>`${TICON[k]} ${TNAME[k]} ${quotas()[k]}`).join(" → ")}</div>`:""}
+    ${SKILLS().length>1?(()=>{const q=quotas(),b=baseQuotas();
+      const up=SKILLS().filter(k=>q[k]>b[k]),dn=SKILLS().filter(k=>q[k]<b[k]);
+      return `<div class="sub">${SKILLS().map(k=>`${TICON[k]} ${TNAME[k]} ${q[k]}${q[k]>b[k]?"▲":q[k]<b[k]?"▼":""}`).join(" → ")}</div>`+
+        (up.length||dn.length?`<div class="note">최근 점수에 맞춰 ${[up.length?nameList(up)+" 늘렸어요":"",dn.length?nameList(dn)+" 줄였어요":""].filter(Boolean).join(", ")}.</div>`:"");})():""}
     ${first&&!t.count?`<div class="sub">처음 하는 부분은 짧은 실력 확인부터 시작해요</div>`:""}
     ${fin?`<div class="stamp">✔ 오늘 퀘스트 완료! 한 번에 맞힌 문제 ${ALLK.reduce((a,k)=>a+t[k].ok,0)}개</div>`:""}
     <button class="btn" type="button" id="startBtn">${fin?"더 풀어 보기":t.count||state.cur?"이어서 풀기":"오늘 문제 시작"}</button>
@@ -1212,6 +1243,7 @@ function sentHTML(c,mark){
   else body=`${it.map((x,i)=>b(i,nm(x[0])+" "+wn(x[1]))).join(", ")}이에요. ${nm(it[c.ask][0])} 얼마예요?`;
   return body;
 }
+const nameList=ks=>{const n=ks.map(k=>TNAME[k]).join("·");return n+josaJS(n,"은","는");};
 function josaJS(w,a,b){const c=w.charCodeAt(w.length-1)-0xAC00;return c>=0&&c<=11171&&c%28?a:b;}
 function renderPlay(){
   const c=state.cur,[info,w]=progInfo();
@@ -1280,6 +1312,7 @@ function onCorrect(){
    레벨이 바뀐 뒤 6문제는 판단하지 않고, 다운은 하루 한 번까지 */
 function record(score){
   const c=state.cur,k=c.k,s=SK(k),P=s.placement,t=state.today,tk=t[k];
+  if(!t.quota){const q=quotas();t.quota={sig:SKILLS().join()+"|"+DAILY,q};}
   t.count++;tk.n++;
   if(c.tries===0&&!c.rv)tk.ok++;else if(score>0)tk.part++;
   if(c.rv)tk.rv++;
@@ -1290,6 +1323,7 @@ function record(score){
   if(P){P.hist.push({lv:c.lv,s:score});P.lv=Math.max(1,Math.min(M,c.lv+(score===1?1:score===0?-1:0)));}
   else{
     s.win=(s.win||[]).concat(score).slice(-10);s.since=(s.since||0)+1;
+    s.hist=(s.hist||[]).concat(score).slice(-30);
     if(s.since>=6){
       const w=s.win.slice(-Math.min(10,s.since)),avg=w.reduce((a,b)=>a+b,0)/w.length;
       if(avg>=.85&&s.level<M){s.level++;change=1;}
