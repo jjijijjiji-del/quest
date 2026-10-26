@@ -339,7 +339,23 @@ TRIES = [(0, 10), (.02, 12), (.04, 8), (0, 14), (.03, 6), (.01, 12), (.05, 10)]
 PROMPT = "숫자는 한글로 적습니다. 구천팔백십 원. 삼백육만 원. 만사백 원. 칠 곱하기 팔. 육 더하기 육."
 
 
-def main(shard, nshard, only=None, recheck_dir=None):
+# ---------- 순서 기억: 그림 카드 단어 (www/cards/cards.json) ----------
+def word_jobs():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "www", "cards", "cards.json")
+    cards = json.load(open(path, encoding="utf-8"))
+    return [(f"w/{c['id']}", [c["w"]], "s", "word", c["w"]) for c in cards]
+
+
+def check_word(text, w):
+    t = clean(text)
+    t = _re.sub(r"[^가-힣a-zA-Z0-9]", "", t)
+    if not t:
+        return False
+    alias = {"티비": ["tv", "티브이"], "휴대폰": ["핸드폰", "휴대전화"], "킥보드": ["킥보드"], "보트": ["boat"]}
+    return name_ok(w, t) or w in t or any(x in t.lower() for x in alias.get(w, []))
+
+
+def main(shard, nshard, only=None, recheck_dir=None, words=False):
     import numpy as np, soundfile as sf
     from supertonic import TTS
     from faster_whisper import WhisperModel
@@ -365,7 +381,7 @@ def main(shard, nshard, only=None, recheck_dir=None):
         segs, _ = asr.transcribe(x, language="ko", beam_size=3, vad_filter=False, condition_on_previous_text=False, initial_prompt=PROMPT)
         return " ".join(s.text for s in segs).strip()
 
-    jobs, _, _ = all_jobs()
+    jobs = word_jobs() if words else all_jobs()[0]
     mine = [j for j in jobs if j[0] in only] if only is not None else jobs[shard::nshard]
     tries = TRIES if only is not None else TRIES[:5]
     report = []
@@ -375,6 +391,8 @@ def main(shard, nshard, only=None, recheck_dir=None):
             return check_money(heard, val)
         if kind == "sent":
             return check_sentence(heard, val)
+        if kind == "word":
+            return check_word(heard, val)
         return check_math(heard, *val)
 
     rechecked = 0
@@ -460,6 +478,9 @@ if __name__ == "__main__":
         names = sorted(r["name"] for r in json.load(open(sys.argv[3], encoding="utf-8")))
         k, n = int(sys.argv[4]), int(sys.argv[5])
         main(k, n, only=set(names[k::n]), recheck_dir=sys.argv[6])
+    elif cmd == "words":
+        # 단어 소리만 만들기: gen_pack.py out words
+        main(0, 1, words=True)
     elif cmd == "index":
         write_index()
     else:

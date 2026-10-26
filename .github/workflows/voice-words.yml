@@ -1,0 +1,50 @@
+name: 음성 팩 단어 추가
+
+# 순서 기억용 단어 소리(0.7배)를 만들어 받아 적어 검사하고, 지금 음성 팩에 더해서 올림
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  words:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 설치
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          pip install supertonic faster-whisper soundfile numpy
+      - name: 단어 소리 만들기
+        run: python scripts/tts/gen_pack.py words_out words
+      - name: 음성 팩에 더하기
+        run: |
+          gh release download voice-pack -R ${{ github.repository }} -p voice-pack.zip -D .
+          unzip -q voice-pack.zip && rm voice-pack.zip
+          rm -rf voice/w && cp -r words_out/w voice/w
+          python3 - <<'PY'
+          import json
+          ix=json.load(open("voice/index.json"));cards=json.load(open("www/cards/cards.json"))
+          ix["words"]=[c["id"] for c in cards]
+          json.dump(ix,open("voice/index.json","w"),ensure_ascii=False,separators=(",",":"))
+          rs=json.load(open("report/shard0.json"));bad=[r for r in rs if not r["ok"]]
+          print(f"::notice::단어 {len(rs)}개, 다시 만든 것 {sum(r['tries']>1 for r in rs)}개, 검사 실패 {len(bad)}개")
+          for r in bad: print("FAIL",r["name"],"|",r["text"],"→",r["heard"])
+          json.dump(bad,open("voice-words-failures.json","w"),ensure_ascii=False,indent=1)
+          PY
+          ls voice/w | wc -l
+          zip -qr voice-pack.zip voice
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: voice-pack
+          files: |
+            voice-pack.zip
+            voice-words-failures.json
+          make_latest: false
