@@ -299,16 +299,24 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .slot img{width:100%;height:100%;object-fit:contain;background:#fff}
 .bwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
 .board{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;max-width:100%}
-.board.wait .tile{opacity:.55;pointer-events:none}
-.tile{position:relative;border:2px solid var(--line);border-radius:12px;background:#fff;padding:4px;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;transition:transform .08s}
-.tile:active{transform:scale(.96)}
-.tile img{width:100%;height:100%;object-fit:contain}
-.tile.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
-.tile.good{border-color:var(--good);box-shadow:0 0 0 3px var(--good)}
-.tile.bad{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad)}
-.tile .bd{position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:15px;display:flex;align-items:center;justify-content:center}
-.tile .bd.hint{background:var(--gold);color:#1b1b1b}
+.board.wait .ptile{opacity:.55;pointer-events:none}
+.ptile{position:relative;border:2px solid var(--line);border-radius:12px;background:#fff;padding:4px;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;transition:transform .08s}
+.ptile:active{transform:scale(.96)}
+.ptile img{width:100%;height:100%;object-fit:contain}
+.ptile.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.ptile.good{border-color:var(--good);box-shadow:0 0 0 3px var(--good)}
+.ptile.bad{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad)}
+.ptile .bd{position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:15px;display:flex;align-items:center;justify-content:center}
+.ptile .bd.hint{background:var(--gold);color:#1b1b1b}
 #sUndo:disabled{opacity:.4}
+
+/* ---- 문제 화면 고정: 숫자 누르다 화면이 밀리지 않게 ---- */
+html,body{overscroll-behavior:none}
+body.lock{position:fixed;inset:0;overflow:hidden;touch-action:manipulation}
+body.lock .app{height:100%;box-sizing:border-box;display:flex;flex-direction:column;
+  padding-block:calc(env(safe-area-inset-top,0px) + 8px) calc(env(safe-area-inset-bottom,0px) + 8px)}
+body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
+.qmin{font-size:14px;color:var(--muted);font-weight:600;margin-left:6px}
 </style>
 </head>
 <body>
@@ -331,7 +339,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
     <div class="opts">
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
       <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
-      <div class="row" id="dailyRow"><span class="lab">하루 문제 수</span></div>
+      <div class="row" id="dailyRow"><span class="lab">하루 연습 시간 · 시간이 다 되면 풀던 문제까지만 하고 끝나요. 문제 수는 항목별로 걸린 시간을 보고 자동으로 정해요</span></div>
       <div class="row" id="partsRow"><span class="lab">오늘 문제에 넣을 것 · 듣고 쓰기·문장 듣기를 기본으로 많이 내고, 최근 점수가 낮은 항목은 늘리고 높은 항목은 줄여요 (항목마다 최소 2문제)</span></div>
       <div class="row" id="styleRow"><span class="lab">읽는 방식 · 누르면 예시(9,810원)를 읽어 줘요</span></div>
       <div class="row" id="engineRow"><span class="lab">발음이 이상하면 폰의 음성 엔진이나 목소리를 바꿔 보세요</span><button class="chip" type="button" id="openTts">음성 엔진 설정 열기</button></div>
@@ -518,7 +526,10 @@ const LV=[null,
   {nm:"백만 원대 · 빈 자리 0",z:"sparse",ex:4000500}
 ];
 const MAXLV=14, TESTN=8;
-Object.defineProperty(window,"DAILY",{get:()=>state.settings.daily||20});
+Object.defineProperty(window,"DAILY",{get:()=>planTotal()});
+const MINS=()=>state.settings.minutes||20;
+// 한 문제에 걸리는 시간(초) 처음 짐작값. 실제로 푼 시간으로 계속 고쳐 감
+const DEFSEC={listen:40,sent:45,seq:40,read:25,add:20,mul:15};
 
 /* ---------- 숫자 → 한글 ---------- */
 const DN="영일이삼사오육칠팔구";
@@ -784,7 +795,7 @@ const ALLK=["listen","sent","seq","read","add","mul"];
 const freshSkill=()=>({level:null,firstLevel:null,placement:null,weak:{},pair:{},seen:{},win:[],since:0,lastDown:null});
 const freshTk=()=>({n:0,ok:0,part:0,rv:0,lv0:null});
 function fresh(){return{v:3,updatedAt:0,skills:{listen:freshSkill(),sent:freshSkill(),seq:freshSkill(),read:freshSkill(),add:freshSkill(),mul:freshSkill()},cur:null,today:null,days:{},lastSkill:null,
-  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:30,vspeed:"s",parts:{listen:true,sent:true,seq:true,read:true,add:true,mul:true},remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
+  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:30,minutes:20,vspeed:"s",parts:{listen:true,sent:true,seq:true,read:true,add:true,mul:true},remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
 // 예전 저장 형식(v2: 듣고 쓰기/보고 읽기를 탭으로 따로 풀던 때)을 옮겨 옴
 function migrate(r){
   const st=fresh();st.settings=Object.assign(st.settings,r.settings||{});st.habit=r.habit||[];
@@ -822,7 +833,7 @@ function save(){
   try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
 }
 const SK=k=>state.skills[k];
-const questDoneToday=()=>{const t=state.today;return !!t&&t.date===dkey()&&t.count>=DAILY;};
+const questDoneToday=()=>{const t=state.today;return !!t&&t.date===dkey()&&(t.doneShown||t.count>=DAILY||timeUp());};
 
 /* ---------- 앱(안드로이드) 기능 ---------- */
 const CAP=window.Capacitor;
@@ -859,7 +870,7 @@ async function scheduleReminders(){
     const times=remindTimes();if(!times.length)return;
     const perm=await LN.checkPermissions();if(perm.display!=="granted")return;
     ensureToday();const now=new Date(),list=[],t=state.today,isToday=t&&t.date===dkey();
-    const doneToday=questDoneToday(),left=isToday?DAILY-t.count:DAILY,stk=streak();
+    const doneToday=questDoneToday(),left=isToday?Math.max(1,DAILY-t.count):DAILY,stk=streak();
     for(let d=0;d<NDAYS;d++){
       if(d===0&&doneToday)continue;
       times.forEach((h,j)=>{
@@ -1055,7 +1066,8 @@ function chime(){
 /* ---------- 화면 전환 ---------- */
 const $=id=>document.getElementById(id);
 let screen="home";
-function show(s){screen=s;["home","play","placed","done","stats","rec","read","calc","seqv"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
+const LOCKED=["play","read","calc","seqv"];
+function show(s){screen=s;document.body.classList.toggle("lock",LOCKED.includes(s));["home","play","placed","done","stats","rec","read","calc","seqv"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
   if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();if(s==="calc")renderCalc();if(s==="seqv")renderSeq();}
 const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Number(v));
 
@@ -1069,7 +1081,7 @@ function ensureToday(){
 }
 function streak(){
   let n=0;const d=new Date();
-  const ok=k=>{const x=state.days[k];return !!x&&x.n>=(x.goal||20);};
+  const ok=k=>{const x=state.days[k];return !!x&&(x.done||x.n>=(x.goal||20));};
   if(!ok(dkey(d)))d.setDate(d.getDate()-1);
   while(ok(dkey(d))){n++;d.setDate(d.getDate()-1);}
   return n;
@@ -1098,17 +1110,27 @@ function split(ks,total,w,min){
   rem.sort((a,b)=>b[0]-a[0]);for(let i=0;sum<total;i++,sum++)q[rem[i%rem.length][1]]++;
   return q;
 }
-const baseQuotas=()=>{const ks=SKILLS();return split(ks,DAILY,WEIGHT,0);};
+const baseQuotas=()=>planFor(SKILLS(),()=>1);
 // 그날 첫 문제를 풀 때 정한 배분을 하루 동안 유지
+/* 하루 연습 시간을 항목별로 나눈 뒤(비중 × 최근 점수), 그 항목 한 문제에 걸리는 시간으로 나눠 문제 수를 정함.
+   항목마다 최소 2문제. 그날 첫 문제를 풀 때 정한 배분을 하루 동안 유지 */
+const avgSec=k=>{const v=SK(k).avgSec;return v&&v>3?v:DEFSEC[k];};
+function planFor(ks,needF){
+  const T=MINS()*60,w={};ks.forEach(k=>w[k]=WEIGHT[k]*needF(k));
+  const tw=ks.reduce((a,k)=>a+w[k],0),q={};
+  ks.forEach(k=>q[k]=Math.max(2,Math.round(T*w[k]/tw/avgSec(k))));
+  return q;
+}
 function quotas(){
-  const ks=SKILLS(),t=state.today,sig=ks.join()+"|"+DAILY;
+  const ks=SKILLS(),t=state.today,sig=ks.join()+"|m"+MINS();
   if(t&&t.quota&&t.quota.sig===sig)return t.quota.q;
-  const min=Math.min(Math.max(2,Math.round(DAILY*.08)),Math.floor(DAILY/ks.length));
-  const w={};ks.forEach(k=>w[k]=WEIGHT[k]*skillNeed(k));
-  const q=split(ks,DAILY,w,min);
+  const q=planFor(ks,skillNeed);
   if(t&&t.count>0)t.quota={sig,q};
   return q;
 }
+const planTotal=()=>{const q=quotas();return Object.values(q).reduce((a,b)=>a+b,0);};
+const timeLeft=()=>{const t=state.today;return Math.max(0,MINS()*60-((t&&t.sec)||0));};
+const timeUp=()=>timeLeft()<=0;
 // 순서대로: 듣고 쓰기 → 보고 읽기 → 덧셈 → 곱셈. 다 풀고 더 풀면 5문제씩 돌아가며
 function skillFor(){
   const t=state.today,q=quotas(),ks=SKILLS();
@@ -1144,9 +1166,9 @@ function renderHome(){
   ensureToday();
   const now=new Date();
   $("today").textContent=now.toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"long"});
-  const qc=$("questCard"),lc=$("levelCard"),t=state.today,c=Math.min(t.count,DAILY),fin=t.count>=DAILY;
+  const qc=$("questCard"),lc=$("levelCard"),t=state.today,c=Math.min(t.count,DAILY),fin=!!t.doneShown||t.count>=DAILY||timeUp();
   const first=SKILLS().some(k=>SK(k).level==null);
-  qc.innerHTML=`<div class="qhead"><h2>오늘의 문제</h2><div class="qcount">${c}<small> / ${DAILY}</small></div></div>
+  qc.innerHTML=`<div class="qhead"><h2>오늘의 문제 <span class="qmin">${fin?`${Math.round((t.sec||0)/60)}분 연습`:t.sec?`남은 시간 약 ${Math.ceil(timeLeft()/60)}분`:`약 ${MINS()}분`}</span></h2><div class="qcount">${c}<small> / ${DAILY}</small></div></div>
     <div class="dots" style="grid-template-columns:repeat(${Math.min(DAILY,15)},1fr)">${(()=>{const q=quotas(),out=[];SKILLS().forEach(k=>{for(let i=0;i<q[k];i++)out.push(`<i class="d-${k}${i<Math.min(t[k].n,q[k])?" on":""}"></i>`);});return out.join("");})()}</div>
     ${SKILLS().length>1?(()=>{const q=quotas(),b=baseQuotas();
       const up=SKILLS().filter(k=>q[k]>b[k]),dn=SKILLS().filter(k=>q[k]<b[k]);
@@ -1164,7 +1186,7 @@ function startPlay(){
   ensureToday();
   if(LN&&!state.settings.askedNotify){state.settings.askedNotify=true;save();askNotify().then(scheduleReminders);}
   const c=state.cur;
-  if(c){if(isMath(c.k)){c.t0=Date.now();show("calc");return;}
+  if(c){c.ts=Date.now();if(isMath(c.k)){c.t0=Date.now();show("calc");return;}
     if(c.k==="seq"){c.taps=[];show("seqv");setTimeout(speak,300);return;}show(c.k==="read"?"read":"play");if(c.k!=="read")speak();return;}
   newQ();
 }
@@ -1174,7 +1196,7 @@ function chips(rowId,items,key){
   const row=$(rowId);row.querySelectorAll(".chip").forEach(c=>c.remove());
   items.forEach(([val,label])=>{const b=document.createElement("button");b.type="button";b.className="chip";
     b.textContent=label;b.setAttribute("aria-pressed",state.settings[key]===val);
-    b.onclick=async()=>{state.settings[key]=val;save();if(key==="remind"&&val>=0)await askNotify();if(key==="remind"||key==="daily")scheduleReminders();if(key==="daily")renderHome();else renderSettings();};row.appendChild(b);});
+    b.onclick=async()=>{state.settings[key]=val;save();if(key==="remind"&&val>=0)await askNotify();if(key==="remind"||key==="daily"||key==="minutes")scheduleReminders();if(key==="daily"||key==="minutes")renderHome();else renderSettings();};row.appendChild(b);});
 }
 function renderRemind(){
   const st=state.settings,box=$("remindBox");
@@ -1220,7 +1242,7 @@ function renderSettings(){
 }
 function renderSettingsRest(){
   if(LN)renderRemind();else $("remindRow").hidden=true;
-  chips("dailyRow",[[20,"20개"],[30,"30개"],[40,"40개"],[50,"50개"]],"daily");
+  chips("dailyRow",[[10,"10분"],[15,"15분"],[20,"20분"],[30,"30분"]],"minutes");
   {const row=$("partsRow");row.querySelectorAll(".chip").forEach(c=>c.remove());const P=state.settings.parts;
    ALLK.filter(k=>(k!=="read"||readOK())&&(k!=="sent"||!!PACK)&&(k!=="seq"||seqOK())).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
      b.textContent=`${TICON[k]} ${TNAME[k]}`;b.setAttribute("aria-pressed",P[k]!==false);
@@ -1260,26 +1282,26 @@ function newQ(skipIntro){
   const P=s.placement,lv=P?P.lv:s.level;
   if(k==="seq"){
     const q=genSeq(lv);
-    state.cur={k,items:q.items,board:q.board,t:0,lv,tries:0,rv:false,rp:0,taps:[]};
+    state.cur={k,items:q.items,board:q.board,t:0,lv,tries:0,rv:false,rp:0,taps:[],ts:Date.now()};
     save();show("seqv");setTimeout(speak,400);return;
   }
   if(k==="sent"){
     const pool=PACK.sent[lv]||PACK.sent[1],recent=s.recent||(s.recent=[]);
     let q;for(let i=0;i<30;i++){q=pool[Math.floor(Math.random()*pool.length)];if(!recent.includes(q.id))break;}
     s.recent=recent.concat(q.id).slice(-60);
-    state.cur={k,id:q.id,items:q.items,ask:q.ask,t:q.items[q.ask][1],lv,tries:0,rv:false,rp:0};
+    state.cur={k,id:q.id,items:q.items,ask:q.ask,t:q.items[q.ask][1],lv,tries:0,rv:false,rp:0,ts:Date.now()};
     input="";save();$("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
     show("play");setTimeout(speak,250);return;
   }
   if(isMath(k)){
     const [a,b]=pickMath(k,lv,state.cur&&state.cur.k===k?[state.cur.a,state.cur.b]:null);
-    state.cur={k,a,b,t:ansOf(k,a,b),lv,tries:0,rv:false,t0:Date.now()};
+    state.cur={k,a,b,t:ansOf(k,a,b),lv,tries:0,rv:false,t0:Date.now(),ts:Date.now()};
     input="";save();$("cMsg").textContent="";$("cAns").className="answer";show("calc");return;
   }
   // 레벨 8 이상: 4문제 중 1개꼴로 1원 단위 금액을 섞어 "끝은 항상 0" 요령을 막음
   let gl=lv;
   if(!P&&lv>=8&&lv!==11&&lv!==12&&Math.random()<.25)gl=lv>=9?12:11;
-  state.cur={k,t:pickNum(k,gl,state.cur?.t,!P),lv,tries:0,rv:false,rp:0};
+  state.cur={k,t:pickNum(k,gl,state.cur?.t,!P),lv,tries:0,rv:false,rp:0,ts:Date.now()};
   input="";save();
   if(k==="read"){$("rHeard").textContent="";$("rHeard").className="rheard";$("rbox").className="rbox";show("read");return;}
   $("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
@@ -1303,7 +1325,8 @@ function showIntro(k){
 function progInfo(){
   const c=state.cur,k=c?c.k:"listen",s=SK(k),P=s.placement,n=state.today.count,nm=SKILLS().length>1?TNAME[k]+" ":"";
   if(P)return[`${nm}실력 확인 <b>${Math.min(P.hist.length+1,TN(k))}</b> / ${TN(k)}`,P.hist.length/TN(k)*100];
-  return[n<DAILY?`<b>${n+1}</b> / ${DAILY} · ${nm}레벨 ${s.level}`:`더 풀기 <b>${n+1-DAILY}</b> · ${nm}레벨 ${s.level}`,Math.min(n/DAILY,1)*100];
+  const T=MINS()*60,used=state.today.sec||0,over=state.today.doneShown;
+  return[!over?`<b>${n+1}</b> / ${DAILY} · ${nm}레벨 ${s.level}`:`더 풀기 · 오늘 <b>${n+1}</b>번째 · ${nm}레벨 ${s.level}`,Math.min(1,Math.max(n/DAILY,used/T))*100];
 }
 function sentHTML(c,mark){
   const nm=w=>w+josaJS(w,"은","는"),wn=v=>Number(v).toLocaleString("ko-KR")+"원",it=c.items;
@@ -1385,7 +1408,10 @@ function onCorrect(){
    레벨이 바뀐 뒤 6문제는 판단하지 않고, 다운은 하루 한 번까지 */
 function record(score){
   const c=state.cur,k=c.k,s=SK(k),P=s.placement,t=state.today,tk=t[k];
-  if(!t.quota){const q=quotas();t.quota={sig:SKILLS().join()+"|"+DAILY,q};}
+  if(!t.quota){const q=quotas();t.quota={sig:SKILLS().join()+"|m"+MINS(),q};}
+  // 걸린 시간: 자리를 비운 시간이 섞이지 않게 한 문제 최대 150초
+  const dur=Math.min(150,Math.max(1,(Date.now()-(c.ts||Date.now()))/1000));
+  t.sec=(t.sec||0)+dur;s.avgSec=s.avgSec?+(s.avgSec*.8+dur*.2).toFixed(1):+dur.toFixed(1);
   t.count++;tk.n++;
   if(c.tries===0&&!c.rv)tk.ok++;else if(score>0)tk.part++;
   if(c.rv)tk.rv++;
@@ -1405,7 +1431,8 @@ function record(score){
     }
   }
   const day=state.days[t.date]||(state.days[t.date]={});
-  day.n=t.count;day.goal=DAILY;
+  day.n=t.count;day.goal=DAILY;day.sec=Math.round(t.sec);day.mins=MINS();
+  if(timeUp()||t.count>=DAILY)day.done=true;
   day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level};
   state.cur=null;save();
   return change;
@@ -1414,7 +1441,7 @@ function advance(k){
   const s=SK(k);
   if(s.placement&&s.placement.hist.length>=TN(k))return finishTest(k);
   const t=state.today;
-  if(t.count>=DAILY&&!t.doneShown&&!SKILLS().some(placing)){t.doneShown=true;save();scheduleReminders();return showDone();}
+  if((t.count>=DAILY||timeUp())&&!t.doneShown&&!SKILLS().some(placing)){t.doneShown=true;save();scheduleReminders();return showDone();}
   newQ();
 }
 $("showAns").onclick=()=>{if(!state.cur)return;state.cur.rv=true;input="";$("msg").textContent="";save();renderPlay();};
@@ -1487,9 +1514,9 @@ function renderSeq(){
   $("slots").innerHTML=Array.from({length:n},(_,i)=>{const id=taps[i];return `<div class="slot${id?" on":""}">${id?`<img src="cards/${id}.webp" alt="">`:i+1}</div>`;}).join("");
   const B=$("board");B.classList.toggle("wait",seqBusy);
   B.innerHTML=c.board.map(id=>{const ti=taps.indexOf(id),ri=c.rv?c.items.indexOf(id):-1,mk=c.mark&&c.mark[id];
-    return `<button type="button" class="tile${ti>=0?" on":""}${mk?" "+mk:""}" data-id="${id}" aria-label="${CARD[id]?CARD[id].w:""}">
+    return `<button type="button" class="ptile${ti>=0?" on":""}${mk?" "+mk:""}" data-id="${id}" aria-label="${CARD[id]?CARD[id].w:""}">
       <img src="cards/${id}.webp" alt="">${ti>=0?`<b class="bd">${ti+1}</b>`:ri>=0?`<b class="bd hint">${ri+1}</b>`:""}</button>`;}).join("");
-  B.querySelectorAll(".tile").forEach(t=>t.onclick=()=>tapSeq(t.dataset.id));
+  B.querySelectorAll(".ptile").forEach(t=>t.onclick=()=>tapSeq(t.dataset.id));
   $("sUndo").disabled=!taps.length||seqBusy;
   $("sShow").hidden=!(c.tries>0&&!c.rv);
   $("sSkip").hidden=!c.rv;
@@ -1717,7 +1744,7 @@ function finishTest(k){
     <button class="btn" type="button" id="goDaily" style="width:100%">계속하기</button>
     <button class="link" type="button" id="goHome">처음 화면으로</button></div>`;
   show("placed");
-  $("goDaily").onclick=()=>{const t=state.today;if(t.count>=DAILY&&!t.doneShown&&!SKILLS().some(placing)){t.doneShown=true;save();scheduleReminders();return showDone();}newQ();};
+  $("goDaily").onclick=()=>{const t=state.today;if((t.count>=DAILY||timeUp())&&!t.doneShown&&!SKILLS().some(placing)){t.doneShown=true;save();scheduleReminders();return showDone();}newQ();};
   $("goHome").onclick=()=>show("home");
 }
 
@@ -1732,7 +1759,8 @@ function showDone(){
     <svg viewBox="0 0 150 150" width="110" height="110" aria-hidden="true"><circle class="ok-ring" cx="75" cy="75" r="56"/>
       <path class="ok-star" d="M75 38l10 21 23 3-17 16 4 23-20-11-20 11 4-23-17-16 23-3z" style="fill:var(--accent-ink)"/></svg>
     <div class="bigstamp">오늘의 퀘스트 완료!</div>
-    <div class="tiles" style="width:100%">${SKILLS().map(per).join("")}${tile(streak()+"일","연속 완료")}${tile(ALLK.reduce((a,k)=>a+t[k].rv,0),"정답 보고 푼 문제")}</div>
+    ${timeUp()&&t.count<DAILY?`<div class="sub">정한 ${MINS()}분이 다 돼서 오늘은 여기까지예요.</div>`:""}
+    <div class="tiles" style="width:100%">${SKILLS().map(per).join("")}${tile(Math.max(1,Math.round((t.sec||0)/60))+"분","오늘 연습 시간")}${tile(streak()+"일","연속 완료")}${tile(ALLK.reduce((a,k)=>a+t[k].rv,0),"정답 보고 푼 문제")}</div>
     ${grow.length?`<div class="grow">${grow.join("<br>")}</div>`:""}
     <button class="btn" type="button" id="dHome" style="width:100%">처음 화면으로</button>
     <div class="acts" style="width:100%"><button class="btn2" type="button" id="dMore">더 풀기</button><button class="btn2" type="button" id="dStats">기록 보기</button></div>
