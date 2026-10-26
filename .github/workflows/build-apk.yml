@@ -8,9 +8,10 @@ on:
       - ".github/workflows/tts-samples.yml"
       - ".github/workflows/voice-pack.yml"
       - ".github/workflows/voice-repair.yml"
+      - ".github/workflows/voice-update.yml"
   workflow_dispatch:
   workflow_run:
-    workflows: ["음성 팩 만들기", "음성 팩 고치기", "음성 팩 단어 추가"]
+    workflows: ["음성 팩 만들기", "음성 팩 고치기", "음성 팩 단어 추가", "음성 팩 일부 다시 만들기"]
     types: [completed]
 
 permissions:

@@ -916,7 +916,8 @@ function voicePath(c,slow){
   const sv=vSpd(slow);
   if(c.k==="sent")return `s/${c.id}_${sv}`;
   if(isMath(c.k)){const key=c.k==="mul"?`mul_${c.a}x${c.b}`:`add_${c.a}p${c.b}`;return PACK&&PACK.math.includes(key)?`x/${key}_${sv}`:null;}
-  return `m/${c.t}_${vSpd(slow)}`;
+  // 금액은 사람이 말하듯 만·천 자리에서 살짝 끊어 읽은 소리(n)가 기본
+  return `m/${c.t}_${slow?"c":PACK&&PACK.nat?"n":"s"}`;
 }
 function textFor(n){
   const st=state.settings.readStyle||"num";
@@ -1332,7 +1333,7 @@ function sentHTML(c,mark){
   const nm=w=>w+josaJS(w,"은","는"),wn=v=>Number(v).toLocaleString("ko-KR")+"원",it=c.items;
   const b=(i,x)=>mark&&i===c.ask?`<b class="hl">${x}</b>`:x;
   let body;
-  if(it.length===1)body=`${b(0,nm(it[0][0])+" "+wn(it[0][1]))}이에요.`;
+  if(it.length===1)body=`${b(0,nm(it[0][0])+" "+wn(it[0][1]))}이에요. ${nm(it[0][0])} 얼마예요?`;
   else if(it.length===2)body=`${b(0,nm(it[0][0])+" "+wn(it[0][1]))}이고, ${b(1,nm(it[1][0])+" "+wn(it[1][1]))}이에요. ${nm(it[c.ask][0])} 얼마예요?`;
   else body=`${it.map((x,i)=>b(i,nm(x[0])+" "+wn(x[1]))).join(", ")}이에요. ${nm(it[c.ask][0])} 얼마예요?`;
   return body;

@@ -11,7 +11,7 @@ import json, os, random, sys, subprocess, traceback
 OUT = sys.argv[1] if len(sys.argv) > 1 else "voice"
 WAV = OUT + "_wav"
 VOICE = "F1"
-SPEED = {"d": 0.75, "s": 0.70, "c": 0.70}  # c = 0.7배 + 쉼표로 쉬어 가기
+SPEED = {"d": 0.75, "s": 0.70, "c": 0.70, "n": 0.70}  # c = 0.7배 + 쉼표로 쉬어 가기, n = 0.7배 + 만·천 자리에서 살짝 끊기
 rnd = random.Random(20261025)
 
 # ---------- 숫자 → 한글 (앱과 같은 규칙) ----------
@@ -220,8 +220,8 @@ def sentence_text(q, slow):
     nm = lambda w: w + josa(w, "은", "는")
     if len(items) == 1:
         a, v = items[0]
-        return f"{nm(a)}{c} {amt(v)} 원이에요."
-    if len(items) == 2:
+        body = f"{nm(a)}{c} {amt(v)} 원이에요."
+    elif len(items) == 2:
         (a, va), (b, vb) = items
         body = f"{nm(a)}{c} {amt(va)} 원이고, {nm(b)}{c} {amt(vb)} 원이에요."
     else:
@@ -320,7 +320,7 @@ def check_sentence(text, q):
     want = [it[1] for it in q["items"]]
     if prices[:len(want)] != want:
         return False
-    if len(want) > 1:
+    if True:
         # 질문에 상품 이름이 빠지지 않았는지 (이번에 고치려는 오류)
         if "얼마" not in segs[-1]:
             return False
@@ -349,6 +349,7 @@ def all_jobs():
         jobs.append((f"m/{v}_d", [f"{to_ko(v)} 원"], "d", "money", v))
         jobs.append((f"m/{v}_s", [f"{to_ko(v)} 원"], "s", "money", v))
         jobs.append((f"m/{v}_c", [f"{to_ko_parts(v)} 원"], "c", "money", v))
+        jobs.append((f"m/{v}_n", [NAT_TEXT(v)], "n", "money", v))
     sent = sentence_pools()
     for lv in sent:
         for q in sent[lv]:
@@ -367,10 +368,24 @@ def all_jobs():
 def sentence_parts(q, slow):
     """문장과 질문을 따로: 질문을 따로 만들어야 상품 이름이 빠지는 오류가 줄어듦"""
     full = sentence_text(q, slow)
-    if len(q["items"]) == 1:
-        return full, None
     i = full.rfind(". ")
     return full[:i + 1], full[i + 2:]
+
+
+# 끊어 읽기 소리 만드는 방법: 쉼표를 넣고 쉬는 시간을 줄임
+NAT_TEXT = lambda v: ", ".join(natural_parts(v)) + " 원"
+NAT_GAP = 0.25
+
+# 이번에 다시 만들 것: 끊어 읽는 금액 전부, 상품 하나 문장(질문 추가), 바뀐 단어
+UPDATE_WORDS = {"g11_3"}
+
+
+def update_jobs():
+    jobs, _, _ = all_jobs()
+    out = [j for j in jobs if j[2] == "n"]
+    out += [j for j in jobs if j[3] == "sent" and j[0].startswith("s/s1_") and j[2] in ("s", "c")]
+    out += [j for j in word_jobs() if j[0][2:] in UPDATE_WORDS]
+    return out
 
 
 # ---------- 소리 만들기 ----------
@@ -397,7 +412,7 @@ def check_word(text, w):
     return name_ok(w, t) or w in t or any(x in t.lower() for x in alias.get(w, []))
 
 
-def main(shard, nshard, only=None, recheck_dir=None, words=False):
+def main(shard, nshard, only=None, recheck_dir=None, words=False, update=False):
     import numpy as np, soundfile as sf
     from supertonic import TTS
     from faster_whisper import WhisperModel
@@ -413,7 +428,9 @@ def main(shard, nshard, only=None, recheck_dir=None, words=False):
         idx = np.where(a > 0.01 * max(a.max(), 1e-6))[0]
         if len(idx):
             w = w[max(0, idx[0] - int(sr * .03)): min(len(w), idx[-1] + int(sr * .12))]
-        return w
+        return cap_pauses(w, sr, NAT_GAP) if sv_now[0] == "n" else w
+
+    sv_now = [""]
 
     def hear(w):
         x = w
@@ -423,7 +440,7 @@ def main(shard, nshard, only=None, recheck_dir=None, words=False):
         segs, _ = asr.transcribe(x, language="ko", beam_size=3, vad_filter=False, condition_on_previous_text=False, initial_prompt=PROMPT)
         return " ".join(s.text for s in segs).strip()
 
-    jobs = word_jobs() if words else all_jobs()[0]
+    jobs = update_jobs() if update else word_jobs() if words else all_jobs()[0]
     mine = [j for j in jobs if j[0] in only] if only is not None else jobs[shard::nshard]
     tries = TRIES if only is not None else TRIES[:5]
     report = []
@@ -457,6 +474,7 @@ def main(shard, nshard, only=None, recheck_dir=None, words=False):
           try:
               dsp, steps = tries[attempt]
               sp = SPEED[sv] + dsp
+              sv_now[0] = sv
               parts = []
               for j, t in enumerate(texts):
                   if j:
@@ -504,7 +522,7 @@ def write_index():
     index = {"v": 2, "voice": VOICE,
              "money": {str(k): v for k, v in money.items()},
              "sent": {str(k): v for k, v in sent.items()},
-             "math": [k for k, _, _ in math_items()]}
+             "math": [k for k, _, _ in math_items()], "nat": True}
     with open(f"{OUT}/index.json", "w", encoding="utf-8") as f:
         json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
 
@@ -523,6 +541,9 @@ if __name__ == "__main__":
     elif cmd == "words":
         # 단어 소리만 만들기: gen_pack.py out words
         main(0, 1, words=True)
+    elif cmd == "update":
+        # gen_pack.py out update 0 6
+        main(int(sys.argv[3]), int(sys.argv[4]), update=True)
     elif cmd == "index":
         write_index()
     else:
