@@ -3,6 +3,10 @@ name: 음성 팩 고치기
 # 검사에서 실패했던 소리만: 더 정확한 음성 인식(large-v3)으로 다시 들어 보고, 그래도 틀리면 다시 만들어 덮어씀
 on:
   workflow_dispatch:
+    inputs:
+      list:
+        description: "실패 목록 파일 이름 (voice-pack 릴리스)"
+        default: voice-check-failures.json
 
 permissions:
   contents: write
@@ -28,10 +32,10 @@ jobs:
           pip install supertonic faster-whisper soundfile numpy
       - name: 지금 음성 팩 받기
         run: |
-          gh release download voice-pack -R ${{ github.repository }} -p voice-pack.zip -p voice-check-failures.json -D old
+          gh release download voice-pack -R ${{ github.repository }} -p voice-pack.zip -p ${{ inputs.list }} -D old
           cd old && unzip -q voice-pack.zip && rm voice-pack.zip
       - name: 다시 듣고, 틀린 것만 다시 만들기
-        run: python scripts/tts/gen_pack.py fixed repair old/voice-check-failures.json ${{ matrix.k }} 4 old/voice
+        run: python scripts/tts/gen_pack.py fixed repair old/${{ inputs.list }} ${{ matrix.k }} 4 old/voice
       - uses: actions/upload-artifact@v4
         if: always()
         with:
