@@ -106,6 +106,64 @@ def cap_pauses(w, sr, cap=0.25, th=0.02, first=None):
     return np.concatenate(out)
 
 
+def gap_caps(text):
+    """글 속 쉼표·마침표마다 쉬는 시간 상한: '만,' 0.12초 / 금액 안 0.25초 / '짬뽕은,' 0.15초 / 문장 사이 0.35초"""
+    t = text.rstrip(" .?!")
+    caps = []
+    for i, ch in enumerate(t):
+        if ch not in ",.":
+            continue
+        before = t[:i].split(" ")[-1]
+        after = t[i + 1:].lstrip().split(" ")[0].rstrip(",.")
+        num = lambda w: bool(w) and all(c in "일이삼사오육칠팔구십백천만" for c in w)
+        if before == "만" and num(after):
+            caps.append(0.12)
+        elif num(before) and num(after):
+            caps.append(0.25)
+        elif before[-1:] in "은는" and num(after):
+            caps.append(0.15)
+        else:
+            caps.append(0.35)
+    return caps
+
+
+def cap_by_text(w, sr, text, th=0.02):
+    """소리 속 쉬는 곳이 글의 쉼표 수와 같으면 자리마다 맞춰 줄이고, 다르면 모두 0.25~0.3초로"""
+    import numpy as np
+    caps = gap_caps(text)
+    f = int(sr * .02)
+    n = len(w) // f
+    if n < 3:
+        return w
+    lv = np.abs(w[:n * f]).reshape(n, f).max(axis=1)
+    loud = lv > th * max(lv.max(), 1e-6)
+    idx = np.where(loud)[0]
+    if not len(idx):
+        return w
+    runs_ = []
+    i = idx[0]
+    while i <= idx[-1]:
+        j = i
+        while j <= idx[-1] and loud[j] == loud[i]:
+            j += 1
+        runs_.append((i, j, bool(loud[i])))
+        i = j
+    gaps = [k for k, (a, b, l) in enumerate(runs_) if not l and b - a >= 6]
+    uniform = 0.3 if any(c == 0.35 for c in caps) else 0.25
+    capmap = dict(zip(gaps, caps)) if len(gaps) == len(caps) else {}
+    out = [w[:idx[0] * f]]
+    for k, (a, b, l) in enumerate(runs_):
+        seg = w[a * f:b * f]
+        if not l:
+            keep = int(capmap.get(k, uniform) / .02)
+            if b - a > keep:
+                h = keep // 2
+                seg = np.concatenate([seg[:h * f], seg[-(keep - h) * f:]])
+        out.append(seg)
+    out.append(w[(idx[-1] + 1) * f:])
+    return np.concatenate(out)
+
+
 def josa(word, a, b):
     """받침 있으면 a(은/이), 없으면 b(는/가)"""
     c = ord(word[-1]) - 0xAC00
@@ -226,10 +284,10 @@ def sentence_pools():
     return out
 
 
-def sentence_text(q, slow):
+def sentence_text(q, slow, nat=False):
     items, ask = q["items"], q["ask"]
-    amt = (lambda v: to_ko_parts(v)) if slow else to_ko
-    c = "," if slow else ""
+    amt = (lambda v: to_ko_parts(v)) if slow else (lambda v: ", ".join(natural_parts(v))) if nat else to_ko
+    c = "," if slow or nat else ""
     nm = lambda w: w + josa(w, "은", "는")
     if len(items) == 1:
         a, v = items[0]
@@ -240,7 +298,7 @@ def sentence_text(q, slow):
     else:
         (a, va), (b, vb), (d, vd) = items
         body = f"{nm(a)}{c} {amt(va)} 원, {nm(b)}{c} {amt(vb)} 원, {nm(d)}{c} {amt(vd)} 원이에요."
-    return f"{body} {nm(items[ask][0])}{c} 얼마예요?"
+    return f"{body} {nm(items[ask][0])}{',' if slow else ''} 얼마예요?"
 
 
 # ---------- 곱셈·덧셈 문제 읽기 ----------
@@ -366,8 +424,8 @@ def all_jobs():
     sent = sentence_pools()
     for lv in sent:
         for q in sent[lv]:
-            for sv, slow in (("d", False), ("s", False), ("c", True)):
-                body, ques = sentence_parts(q, slow)
+            for sv, slow in (("d", False), ("s", False), ("c", True), ("n", False)):
+                body, ques = sentence_parts(q, slow, sv == "n")
                 jobs.append((f"s/{q['id']}_{sv}", [body] + ([ques] if ques else []), sv, "sent", q))
     for key, t, ts in math_items():
         a, b = int(key[4]), int(key[6])
@@ -378,9 +436,9 @@ def all_jobs():
     return jobs, money, sent
 
 
-def sentence_parts(q, slow):
+def sentence_parts(q, slow, nat=False):
     """문장과 질문을 따로: 질문을 따로 만들어야 상품 이름이 빠지는 오류가 줄어듦"""
-    full = sentence_text(q, slow)
+    full = sentence_text(q, slow, nat)
     i = full.rfind(". ")
     return full[:i + 1], full[i + 2:]
 
@@ -394,12 +452,9 @@ UPDATE_WORDS = {"g11_3"}
 
 
 def update_jobs():
+    """이번에 새로 만들 것: 문장 듣기 끊어 읽기(n)"""
     jobs, _, _ = all_jobs()
-    # 끊는 곳이 없는 금액은 지금 0.7배 소리(_s)와 같아서 만들지 않고 합칠 때 복사
-    out = [j for j in jobs if j[2] == "n" and "," in j[1][0]]
-    out += [j for j in jobs if j[3] == "sent" and j[0].startswith("s/s1_") and j[2] in ("s", "c")]
-    out += [j for j in word_jobs() if j[0][2:] in UPDATE_WORDS]
-    return out
+    return [j for j in jobs if j[3] == "sent" and j[2] == "n"]
 
 
 # ---------- 소리 만들기 ----------
@@ -443,7 +498,7 @@ def main(shard, nshard, only=None, recheck_dir=None, words=False, update=False):
         if len(idx):
             w = w[max(0, idx[0] - int(sr * .03)): min(len(w), idx[-1] + int(sr * .12))]
         if sv_now[0] == "n":
-            return cap_pauses(w, sr, NAT_GAP, first=0.12 if text.startswith("만,") else None)
+            return cap_by_text(w, sr, text)
         return w
 
     sv_now = [""]

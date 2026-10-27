@@ -128,5 +128,34 @@ def natural():
         print("wrote", name, len(w) / sr)
 
 
+
+def natsent():
+    """문장 듣기 끊어 읽기 — 상품 이름 뒤에서 안 쉬기 / 살짝 쉬기 비교"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import gen_pack as g
+    from supertonic import TTS
+    tts = TTS(auto_download=True)
+    sr = getattr(tts, "sample_rate", None) or 44100
+    style = tts.get_voice_style(voice_name="F1")
+
+    def say(t):
+        w, _ = tts.synthesize(t, voice_style=style, lang="ko", total_steps=10, speed=0.7, silence_duration=0.15)
+        return g.cap_by_text(trim(np.asarray(w, dtype=np.float32).reshape(-1), sr), sr, t)
+
+    _, _, sent = g.all_jobs()
+    qs = [q for q in sent[1] if q["items"][0][1] >= 10000][:2] + sent[1][1:2] + sent[2][:2] + sent[4][:1]
+    for name, keep in [("1-이름-뒤-안-쉼", False), ("2-이름-뒤-살짝-쉼", True)]:
+        parts = []
+        for q in qs:
+            body, ques = g.sentence_parts(q, False, True)
+            if not keep:
+                body = body.replace("은,", "은").replace("는,", "는")
+            print(name, body, "/", ques, g.gap_caps(body))
+            parts += [say(body), gap(sr, 0.5), say(ques), gap(sr, 1.5)]
+        w = np.concatenate(parts)
+        w = w / max(np.abs(w).max(), 1e-6) * 0.9
+        sf.write(f"{OUT}/{name}.wav", w, sr)
+
+
 if __name__ == "__main__":
-    {"supertonic": supertonic, "melo": melo, "speeds": speeds, "natural": natural}[sys.argv[1]]()
+    {"supertonic": supertonic, "melo": melo, "speeds": speeds, "natural": natural, "natsent": natsent}[sys.argv[1]]()

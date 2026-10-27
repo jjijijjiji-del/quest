@@ -17,7 +17,7 @@ jobs:
       - name: 설치
         run: pip install supertonic soundfile numpy
       - name: 샘플 만들기
-        run: python scripts/tts/samples.py natural
+        run: python scripts/tts/samples.py natsent
       - name: mp3로 바꾸기
         run: |
           sudo apt-get install -y ffmpeg >/dev/null
@@ -64,8 +64,8 @@ jobs:
         run: mkdir -p all && find out -name "*.mp3" -exec cp {} all/ \; && ls -la all
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: tts-samples-natural
-          name: 음성 샘플 3 (금액 끊어 읽기)
+          tag_name: tts-samples-natsent
+          name: 음성 샘플 4 (문장 끊어 읽기)
           body: |
             F1·F3 목소리를 0.75 / 0.85 / 1.00배 속도로.
             1) 구천팔백십 원  2) 사백만 오백 원  3) 커피는 사천 원이고, 빵은 이천 원이에요. 빵은 얼마예요?
