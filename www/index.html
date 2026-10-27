@@ -312,7 +312,10 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 
 /* ---- 문제 화면 고정: 숫자 누르다 화면이 밀리지 않게 ---- */
 html,body{overscroll-behavior:none}
-body.lock{position:fixed;inset:0;overflow:hidden;touch-action:manipulation}
+body.lock{position:fixed;inset:0;overflow:hidden;touch-action:none}
+/* 문제 화면에서는 손가락으로 끌어도 아무것도 움직이지 않게 (누르기는 그대로) */
+body.lock .app,body.lock .app *{overscroll-behavior:none;touch-action:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}html,body{scrollbar-width:none}
 body.lock .app{height:100%;box-sizing:border-box;display:flex;flex-direction:column;
   padding-block:calc(env(safe-area-inset-top,0px) + 8px) calc(env(safe-area-inset-bottom,0px) + 8px)}
 body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
@@ -1068,6 +1071,7 @@ function chime(){
 const $=id=>document.getElementById(id);
 let screen="home";
 const LOCKED=["play","read","calc","seqv"];
+document.addEventListener("touchmove",e=>{if(document.body.classList.contains("lock")&&e.cancelable)e.preventDefault();},{passive:false});
 function show(s){screen=s;document.body.classList.toggle("lock",LOCKED.includes(s));["home","play","placed","done","stats","rec","read","calc","seqv"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
   if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();if(s==="calc")renderCalc();if(s==="seqv")renderSeq();}
 const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Number(v));
