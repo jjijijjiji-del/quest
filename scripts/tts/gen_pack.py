@@ -549,7 +549,7 @@ def main(shard, nshard, only=None, recheck_dir=None, words=False, update=False):
               parts = []
               for j, t in enumerate(texts):
                   if j:
-                      parts.append(np.zeros(int(sr * (.7 if sv == "c" else .5)), dtype=np.float32))
+                      parts.append(np.zeros(int(sr * (.7 if sv == "c" else .9 if sv == "n" else .5)), dtype=np.float32))  # 문장과 질문 사이
                   parts.append(synth(t, sp, steps))
               w = np.concatenate(parts)
               w = w / max(np.abs(w).max(), 1e-6) * 0.92
