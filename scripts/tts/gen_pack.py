@@ -109,6 +109,7 @@ def cap_pauses(w, sr, cap=0.25, th=0.02, first=None):
 def gap_caps(text):
     """글 속 쉼표·마침표마다 쉬는 시간 상한: '만,' 0.12초 / 금액 안 0.25초 / '짬뽕은,' 0.15초 / 문장 사이 0.35초"""
     t = text.rstrip(" .?!")
+    sentence = "은," in t or "는," in t
     caps = []
     for i, ch in enumerate(t):
         if ch not in ",.":
@@ -117,9 +118,9 @@ def gap_caps(text):
         after = t[i + 1:].lstrip().split(" ")[0].rstrip(",.")
         num = lambda w: bool(w) and all(c in "일이삼사오육칠팔구십백천만" for c in w)
         if before == "만" and num(after):
-            caps.append(0.12)
+            caps.append(0.1 if sentence else 0.12)
         elif num(before) and num(after):
-            caps.append(0.25)
+            caps.append(0.15 if sentence else 0.25)  # 문장 속 금액은 더 짧게
         elif before[-1:] in "은는" and num(after):
             caps.append(0.15)
         else:
@@ -127,10 +128,16 @@ def gap_caps(text):
     return caps
 
 
-def cap_by_text(w, sr, text, th=0.02):
-    """소리 속 쉬는 곳이 글의 쉼표 수와 같으면 자리마다 맞춰 줄이고, 다르면 모두 0.25~0.3초로"""
+def cap_by_text(w, sr, text, th=0.02, report=None):
+    """쉬는 곳마다 글의 어느 쉼표인지 찾아(말한 시간 비율 ↔ 글자 위치) 그 쉼표의 상한으로 줄임.
+    쉼표에 해당하지 않는 쉼(글자 사이 숨)은 0.1초로. 쉼 수가 글과 달라도 자리별로 맞음"""
     import numpy as np
     caps = gap_caps(text)
+    t = text.rstrip(" .?!")
+    # 쉼표 앞 글자 수 (공백·문장부호 빼고)
+    syl = lambda u: sum(1 for ch in u if "가" <= ch <= "힣")
+    pos = [syl(t[:i]) for i, ch in enumerate(t) if ch in ",."]
+    total = max(1, syl(t))
     f = int(sr * .02)
     n = len(w) // f
     if n < 3:
@@ -148,14 +155,23 @@ def cap_by_text(w, sr, text, th=0.02):
             j += 1
         runs_.append((i, j, bool(loud[i])))
         i = j
-    gaps = [k for k, (a, b, l) in enumerate(runs_) if not l and b - a >= 6]
-    uniform = 0.3 if any(c == 0.35 for c in caps) else 0.25
-    capmap = dict(zip(gaps, caps)) if len(gaps) == len(caps) else {}
-    out = [w[:idx[0] * f]]
-    for k, (a, b, l) in enumerate(runs_):
+    speech = sum(b - a for a, b, l in runs_ if l)
+    out, said, used = [w[:idx[0] * f]], 0, set()
+    for a, b, l in runs_:
         seg = w[a * f:b * f]
-        if not l:
-            keep = int(capmap.get(k, uniform) / .02)
+        if l:
+            said += b - a
+        elif b - a >= 4:
+            at = said / max(1, speech) * total
+            best = min(range(len(pos)), key=lambda k: abs(pos[k] - at), default=None)
+            if best is not None and abs(pos[best] - at) <= 1.6 and best not in used:
+                cap = caps[best]
+                used.add(best)
+            else:
+                cap = 0.1
+            if report is not None:
+                report.append((round(at, 1), best, cap, round((b - a) * .02, 2)))
+            keep = int(cap / .02)
             if b - a > keep:
                 h = keep // 2
                 seg = np.concatenate([seg[:h * f], seg[-(keep - h) * f:]])
@@ -452,9 +468,9 @@ UPDATE_WORDS = {"g11_3"}
 
 
 def update_jobs():
-    """이번에 새로 만들 것: 문장 듣기 끊어 읽기(n)"""
+    """이번에 새로 만들 것: 문장 듣기 끊어 읽기(n) 중 금액 안에서 끊는 문장 ('만' 뒤가 길게 쉬던 것 고치기)"""
     jobs, _, _ = all_jobs()
-    return [j for j in jobs if j[3] == "sent" and j[2] == "n"]
+    return [j for j in jobs if j[3] == "sent" and j[2] == "n" and any(c in (0.1, 0.15) and "만," in j[1][0] for c in gap_caps(j[1][0]))]
 
 
 # ---------- 소리 만들기 ----------
