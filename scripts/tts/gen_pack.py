@@ -107,9 +107,9 @@ def cap_pauses(w, sr, cap=0.25, th=0.02, first=None):
 
 
 def gap_caps(text):
-    """글 속 쉼표·마침표마다 쉬는 시간 상한: '만,' 0.12초 / 금액 안 0.25초 / '짬뽕은,' 0.15초 / 문장 사이 0.35초"""
+    """글 속 쉼표·마침표마다 쉬는 시간 상한 — 금액을 다시 물어본 사람에게 또박또박 친절하게 알려 주는 정도.
+    '만,' 0.12초 / 금액 안 0.25초 (듣고 쓰기와 문장 듣기 같음) / '짬뽕은,' 0.2초 / 상품 사이 0.35초"""
     t = text.rstrip(" .?!")
-    sentence = "은," in t or "는," in t
     caps = []
     for i, ch in enumerate(t):
         if ch not in ",.":
@@ -118,11 +118,11 @@ def gap_caps(text):
         after = t[i + 1:].lstrip().split(" ")[0].rstrip(",.")
         num = lambda w: bool(w) and all(c in "일이삼사오육칠팔구십백천만" for c in w)
         if before == "만" and num(after):
-            caps.append(0.1 if sentence else 0.12)
+            caps.append(0.12)
         elif num(before) and num(after):
-            caps.append(0.15 if sentence else 0.25)  # 문장 속 금액은 더 짧게
+            caps.append(0.25)
         elif before[-1:] in "은는" and num(after):
-            caps.append(0.15)
+            caps.append(0.2)
         else:
             caps.append(0.35)
     return caps
@@ -470,7 +470,7 @@ UPDATE_WORDS = {"g11_3"}
 def update_jobs():
     """이번에 새로 만들 것: 문장 듣기 끊어 읽기(n) 중 금액 안에서 끊는 문장 ('만' 뒤가 길게 쉬던 것 고치기)"""
     jobs, _, _ = all_jobs()
-    return [j for j in jobs if j[3] == "sent" and j[2] == "n" and any(c in (0.1, 0.15) and "만," in j[1][0] for c in gap_caps(j[1][0]))]
+    return [j for j in jobs if j[3] == "sent" and j[2] == "n" and "만," in j[1][0]]
 
 
 # ---------- 소리 만들기 ----------
