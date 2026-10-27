@@ -914,7 +914,7 @@ function voicePath(c,slow){
   if(!c)return null;
   // 문장·계산은 보통/천천히 구분 없이 하나(d)만 있어서, 아주 천천히(s)만 따로 고름
   const sv=vSpd(slow);
-  if(c.k==="sent")return `s/${c.id}_${sv}`;
+  if(c.k==="sent")return `s/${c.id}_${slow?"c":PACK&&PACK.natS?"n":sv}`;
   if(isMath(c.k)){const key=c.k==="mul"?`mul_${c.a}x${c.b}`:`add_${c.a}p${c.b}`;return PACK&&PACK.math.includes(key)?`x/${key}_${sv}`:null;}
   // 금액은 사람이 말하듯 만·천 자리에서 살짝 끊어 읽은 소리(n)가 기본
   return `m/${c.t}_${slow?"c":PACK&&PACK.nat?"n":"s"}`;
