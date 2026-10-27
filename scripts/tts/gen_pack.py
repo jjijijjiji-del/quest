@@ -67,12 +67,15 @@ def natural_parts(n):
     mw = ("" if m == 1 else u4(m)) + "만"
     if not rest:
         return [mw]
-    if len(mw) == 1 or len(mw) + len(rw) < 5:
+    if len(mw) == 1:
+        # '만'으로 시작하면 '마안, 이천' 처럼 만을 살짝 끌고 아주 짧게 쉼
+        return [mw] + rest
+    if len(mw) + len(rw) < 5:
         return [mw + rest[0]] + rest[1:]
     return [mw] + rest
 
 
-def cap_pauses(w, sr, cap=0.25, th=0.02):
+def cap_pauses(w, sr, cap=0.25, th=0.02, first=None):
     """말 사이 조용한 구간을 cap초로 줄임 (앞뒤는 그대로)"""
     import numpy as np
     f = int(sr * .02)
@@ -85,15 +88,18 @@ def cap_pauses(w, sr, cap=0.25, th=0.02):
     if not len(idx):
         return w
     keep = int(cap / .02)
-    out, i = [w[:idx[0] * f]], idx[0]
+    out, i, gaps = [w[:idx[0] * f]], idx[0], 0
     while i <= idx[-1]:
         j = i
         while j <= idx[-1] and loud[j] == loud[i]:
             j += 1
         seg = w[i * f:j * f]
-        if not loud[i] and (j - i) > keep:
-            h = keep // 2
-            seg = np.concatenate([seg[:h * f], seg[-(keep - h) * f:]])
+        k = int(first / .02) if first and gaps == 0 else keep
+        if not loud[i] and (j - i) > k:
+            h = k // 2
+            seg = np.concatenate([seg[:h * f], seg[-(k - h) * f:]])
+        if not loud[i] and (j - i) >= 4:
+            gaps += 1
         out.append(seg)
         i = j
     out.append(w[(idx[-1] + 1) * f:])
@@ -436,7 +442,9 @@ def main(shard, nshard, only=None, recheck_dir=None, words=False, update=False):
         idx = np.where(a > 0.01 * max(a.max(), 1e-6))[0]
         if len(idx):
             w = w[max(0, idx[0] - int(sr * .03)): min(len(w), idx[-1] + int(sr * .12))]
-        return cap_pauses(w, sr, NAT_GAP) if sv_now[0] == "n" else w
+        if sv_now[0] == "n":
+            return cap_pauses(w, sr, NAT_GAP, first=0.12 if text.startswith("만,") else None)
+        return w
 
     sv_now = [""]
 
