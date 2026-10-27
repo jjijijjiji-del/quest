@@ -52,17 +52,24 @@ def to_ko_parts(n):
 
 
 def natural_parts(n):
-    """사람이 말하듯 끊어 읽기: 205880 → ['이십만', '오천', '팔백팔십'], 34500 → ['삼만', '사천오백'], 9810 → ['구천팔백십']"""
+    """손님에게 금액을 알려 주듯 끊어 읽기 (짧으면 이어서, 길면 끝의 십·일 단위를 떼어서)
+    9810 → 구천팔백, 십   205880 → 이십만, 오천팔백, 팔십   15000 → 만오천   34500 → 삼만, 사천오백"""
     m, r = n // 10000, n % 10000
+    rest = []
+    rw = u4(r)
+    if len(rw) >= 5 and r % 100:
+        head, tail = u4(r - r % 100), u4(r % 100)
+        rest = [head, tail] if head else [tail]
+    elif rw:
+        rest = [rw]
     if not m:
-        return [u4(r)]
-    parts = [("" if m == 1 else u4(m)) + "만"]
-    th, rest = r // 1000, r % 1000
-    if th and sum(c != "0" for c in str(rest)) >= 2:
-        parts += [("" if th == 1 else DN[th]) + "천", u4(rest)]
-    elif r:
-        parts.append(u4(r))
-    return parts
+        return rest or ["영"]
+    mw = ("" if m == 1 else u4(m)) + "만"
+    if not rest:
+        return [mw]
+    if len(mw) == 1 or len(mw) + len(rw) < 5:
+        return [mw + rest[0]] + rest[1:]
+    return [mw] + rest
 
 
 def cap_pauses(w, sr, cap=0.25, th=0.02):
@@ -382,7 +389,8 @@ UPDATE_WORDS = {"g11_3"}
 
 def update_jobs():
     jobs, _, _ = all_jobs()
-    out = [j for j in jobs if j[2] == "n"]
+    # 끊는 곳이 없는 금액은 지금 0.7배 소리(_s)와 같아서 만들지 않고 합칠 때 복사
+    out = [j for j in jobs if j[2] == "n" and "," in j[1][0]]
     out += [j for j in jobs if j[3] == "sent" and j[0].startswith("s/s1_") and j[2] in ("s", "c")]
     out += [j for j in word_jobs() if j[0][2:] in UPDATE_WORDS]
     return out

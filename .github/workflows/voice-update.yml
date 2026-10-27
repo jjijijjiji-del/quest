@@ -51,7 +51,17 @@ jobs:
           for d in parts/part-*; do cp -r $d/voice/. voice/; cp -r $d/report/. report/; done
           python3 - <<'PY'
           import json,glob
+          import os,shutil,sys
+          sys.argv=["x","dry"];sys.path.insert(0,"scripts/tts")
+          import gen_pack as g
           ix=json.load(open("voice/index.json"));ix["nat"]=True
+          vs={v for l in ix["money"].values() for v in l}
+          cp=0
+          for v in vs:
+              if len(g.natural_parts(v))==1 and not os.path.exists(f"voice/m/{v}_n.ogg"):
+                  shutil.copy(f"voice/m/{v}_s.ogg",f"voice/m/{v}_n.ogg");cp+=1
+          miss=[v for v in vs if not os.path.exists(f"voice/m/{v}_n.ogg")]
+          print(f"::notice::그대로 복사 {cp}개, 빠진 것 {len(miss)}개")
           ix["words"]=[c["id"] for c in json.load(open("www/cards/cards.json"))]
           json.dump(ix,open("voice/index.json","w"),ensure_ascii=False,separators=(",",":"))
           rs=[r for f in glob.glob("report/*.json") for r in json.load(open(f))]
