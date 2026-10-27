@@ -9,6 +9,7 @@ permissions:
 jobs:
   supertonic:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -20,7 +21,7 @@ jobs:
         run: python scripts/tts/samples.py natsent
       - name: mp3로 바꾸기
         run: |
-          sudo apt-get install -y ffmpeg >/dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
           for f in samples/*.wav; do ffmpeg -loglevel error -y -i "$f" -b:a 128k "${f%.wav}.mp3"; done
       - uses: actions/upload-artifact@v4
         with:
