@@ -1264,12 +1264,15 @@ const HV=(()=>{
   function split(raw,sr,n){
     const x=new Float32Array(raw.length),rc=1/(2*Math.PI*80),dt=1/sr,al=rc/(rc+dt);
     let py=0,px=0;for(let i=0;i<raw.length;i++){py=al*(py+raw[i]-px);px=raw[i];x[i]=py;}
-    const f=Math.round(sr*.01),N=Math.floor(x.length/f),rms=[];
-    for(let i=0;i<N;i++){let a=0;for(let j=i*f;j<(i+1)*f;j++)a+=x[j]*x[j];rms.push(Math.sqrt(a/f));}
+    const f=Math.round(sr*.01),N=Math.floor(x.length/f),rms=[],hf=[];
+    // hf: 높은 소리 크기 ('ㅅ' 'ㅊ' 'ㅎ' 'ㅆ' 같은 바람 소리는 작지만 높은 소리라 이걸로 잡음)
+    for(let i=0;i<N;i++){let a=0,h=0;for(let j=i*f;j<(i+1)*f;j++){a+=x[j]*x[j];if(j>1){const d=x[j]-2*x[j-1]+x[j-2];h+=d*d;}}rms.push(Math.sqrt(a/f));hf.push(Math.sqrt(h/f));}
     if(N<20)return{err:"short"};
     const so=[...rms].sort((a,b)=>a-b),floor=so[Math.floor(N*.2)],peak=so[N-1];
     if(peak<.004)return{err:"quiet"};
-    const th=Math.max(floor*3,peak*.06,.002),v=rms.map(r=>r>th);
+    const sh=[...hf].sort((a,b)=>a-b),hfloor=sh[Math.floor(N*.2)],hpeak=sh[N-1];
+    const th=Math.max(floor*3,peak*.06,.002),hth=Math.max(hfloor*4,hpeak*.08,1e-5);
+    const v=rms.map((r,i)=>r>th||hf[i]>hth);
     // 잡음처럼 짧게 튄 소리(30ms 미만)는 조용한 것으로
     for(let i=0;i<N;){if(!v[i]){i++;continue;}let j=i;while(j<N&&v[j])j++;if(j-i<3)for(let q=i;q<j;q++)v[q]=false;i=j;}
     const a=v.indexOf(true),b=v.lastIndexOf(true);
@@ -1287,10 +1290,12 @@ const HV=(()=>{
     const segs=[];let st=a;
     cut.concat([{s:b+1,e:N}]).forEach(g=>{segs.push([st,g.s]);st=g.e;});
     const out=[];
-    for(const [s,e] of segs){
-      let vc=0,vs=0;for(let i=s;i<e;i++)if(v[i]){vc++;vs+=rms[i]*rms[i];}
-      if(vc<10)return{err:"gap"};
-      const s0=Math.max(0,s-4),e0=Math.min(N,e+10),seg=x.slice(s0*f,e0*f);
+    for(let si=0;si<segs.length;si++){const [s,e]=segs[si];
+      let vc=0,vs=0;for(let i=s;i<e;i++)if(rms[i]>th){vc++;vs+=rms[i]*rms[i];}
+      if(vc<8)return{err:"gap"};
+      // 앞뒤 여유: 말 시작 전 0.08초, 끝난 뒤 0.12초 (옆 조각 소리는 넘지 않게)
+      const prevEnd=si?segs[si-1][1]:0,nextStart=si<segs.length-1?segs[si+1][0]:N;
+      const s0=Math.max(0,prevEnd+Math.floor((s-prevEnd)/2),s-8),e0=Math.min(N,e+12,e+Math.floor((nextStart-e)/2)),seg=x.slice(s0*f,e0*f);
       let pk=0;for(let i=0;i<seg.length;i++)pk=Math.max(pk,Math.abs(seg[i]));
       const g=Math.min(.12/Math.sqrt(vs/vc),.95/pk,25),fade=Math.round(sr*.01),pcm=new Int16Array(seg.length);
       for(let i=0;i<seg.length;i++){let w=1;if(i<fade)w=i/fade;else if(i>seg.length-fade)w=(seg.length-i)/fade;pcm[i]=Math.max(-32767,Math.min(32767,Math.round(seg[i]*g*w*32767)));}
