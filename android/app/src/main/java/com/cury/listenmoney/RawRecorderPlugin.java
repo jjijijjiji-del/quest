@@ -22,8 +22,8 @@ import java.io.ByteArrayOutputStream;
 
 /**
  * 보호자 목소리 녹음용 원음 녹음기.
- * 웹 화면의 마이크는 기기에 따라 통화용 처리(잡음 제거·대역 제한)가 붙어 먹먹해질 수 있어서,
- * 안드로이드 녹음기를 직접 써서 처리 없는 소리(UNPROCESSED, 안 되면 VOICE_RECOGNITION)를 48kHz로 받는다.
+ * 웹 화면의 마이크는 기기에 따라 통화용 처리(대역 제한)가 붙어 먹먹해질 수 있어서,
+ * 안드로이드 녹음기를 직접 써서 기본 녹음기 앱과 같은 일반 마이크(MIC) 소리를 48kHz로 받는다.
  */
 @CapacitorPlugin(
     name = "RawRecorder",
@@ -62,9 +62,8 @@ public class RawRecorderPlugin extends Plugin {
             AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
             unprocessed = "true".equals(am.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED));
         }
-        sources = unprocessed
-            ? new int[] { MediaRecorder.AudioSource.UNPROCESSED, MediaRecorder.AudioSource.VOICE_RECOGNITION, MediaRecorder.AudioSource.MIC }
-            : new int[] { MediaRecorder.AudioSource.VOICE_RECOGNITION, MediaRecorder.AudioSource.MIC };
+        // 기본 녹음기 앱과 같은 일반 마이크 경로 (폰 제조사가 녹음용으로 맞춰 둔 소리: 잡음 적고 또렷함)
+        sources = new int[] { MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.VOICE_RECOGNITION };
         for (int src : sources) {
             for (int r : rates) {
                 try {
