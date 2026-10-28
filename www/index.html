@@ -200,6 +200,8 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 
 /* ---- 목소리 녹음 ---- */
 .rcard{gap:14px}
+.askq{text-align:center;font-size:22px;font-weight:700;padding:6px 0}
+.askq b{color:var(--accent);font-size:26px}
 .hrline{font-size:30px;font-weight:800;line-height:1.35;word-break:keep-all}
 .hrline span{white-space:nowrap}
 .hrparts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
@@ -392,6 +394,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
     <button class="peek" id="peek" type="button">금액 보기</button>
   </div>
 
+  <div class="askq" id="askq" hidden></div>
   <div class="qrow">
     <button class="speak" id="speak" type="button" aria-label="다시 듣기">🔊<span>듣기</span></button>
     <div class="answer" id="answer"><span class="num empty" id="num">0</span><span class="won">원</span></div>
@@ -983,7 +986,7 @@ function speak(){
   if(guardian()||!state.cur)return;
   if(state.cur.k==="seq"){const c=state.cur;if(voiceMode())playSeq(c,c.rp>=2||c.tries>=2);return;}
   {const c=state.cur,slow=c.rp>=2||c.tries>=2;
-   if(c.k==="sent"&&c.hv){HV.play(c.keys,slow);return;}
+   if(c.k==="sent"&&c.hv){HV.play(c.keys,slow).then(d=>{if(d)setTimeout(()=>{if(state.cur===c&&!c.askShown){c.askShown=true;save();if(screen==="play")renderPlay();}},d*1000+300);});return;}
    if(c.k==="listen"||c.k==="read"){const ks=HV.keysFor(c.t);if(ks){HV.play(ks,slow);return;}}}
   if(voiceMode()){const c=state.cur,p=voicePath(c,c.rp>=2||c.tries>=2);if(p)playVoice(p);return;}
   if(recMode()){playClips(clipsFor(state.cur.t),state.cur.rp>=2);return;}
@@ -1158,7 +1161,7 @@ const HV=(()=>{
   [["감자",4600,"라면",1000],["짜장면",7100,"커피",6000],["두부",2300,"계란",6400],["계란",7000,"김밥",4700],["커피",5000,"사과",3000],["포도",8000,"김밥",3300],
    ["김밥",3500,"빵",4600],["빵",3700,"포도",9000],["포도",6000,"감자",3800],["오이",2200,"당근",2500],["바나나",3000,"짜장면",8000],["사과",1900,"양파",4000],
    ["라면",3800,"오이",2000],["계란",9000,"우유",2900],["당근",1000,"짜장면",7000],["우유",2000,"두부",2200],["양파",4000,"바나나",5000],["짜장면",7400,"과자",2100]]
-   .forEach(([a,p1,q,p2],i)=>lines.push({id:"s"+i,kind:"s",units:[topic(a),...priceKeys(p1,false),topic(q),...priceKeys(p2,true),ask(q)]}));
+   .forEach(([a,p1,q,p2],i)=>lines.push({id:"s"+i,kind:"s",units:[topic(a),...priceKeys(p1,false),topic(q),...priceKeys(p2,true)]}));  // 질문은 소리 대신 화면 글자로
   lines.forEach(l=>l.text=l.units.join(" "));
 
   // ---- 저장된 조각 ----
@@ -1210,14 +1213,12 @@ const HV=(()=>{
     for(let t=0;t<400;t++){
       const ps=[...prods].sort(()=>Math.random()-.5).slice(0,n);if(ps.length<n)break;
       const ai=lv<=1?0:lv===2?1:Math.floor(Math.random()*n);
-      if(!have(ask(ps[ai][0])))continue;
       const used=[],items=[],keys=[];let ok=true;
       ps.forEach((p,i)=>{if(!ok)return;const last=i===n-1,c=[];
         for(let x=p[1];x<=p[2];x+=100)if(!used.includes(x)&&priceKeys(x,last).every(have))c.push(x);
         if(!c.length){ok=false;return;}const pr=c[Math.floor(Math.random()*c.length)];used.push(pr);
         items.push([p[0],pr]);keys.push(topic(p[0]),...priceKeys(pr,last));});
       if(!ok)continue;
-      keys.push(ask(ps[ai][0]));
       return{items,ask:ai,keys};
     }
     return lv>1?sent(lv-1):null;
@@ -1249,9 +1250,10 @@ const HV=(()=>{
     const my=tok,ctx=getAC();
     const bs=raw||await Promise.all(keys.map(buf));
     if(my!==tok)return;
-    let t=ctx.currentTime+.06;
+    const t0=ctx.currentTime+.06;let t=t0;
     bs.forEach((b,i)=>{if(!b)return;const s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(t);srcs.push(s);
-      if(i<bs.length-1){const g=gapAfter(keys[i]);t+=b.duration+(slow?g*2+.2:g);}});
+      t+=b.duration;if(i<bs.length-1){const g=gapAfter(keys[i]);t+=slow?g*2+.2:g;}});
+    return t-t0+.06;  // 다 들려주는 데 걸리는 시간(초)
   }
 
   // ---- 녹음 → 쉼표 자리에서 자르기 ----
@@ -1382,7 +1384,7 @@ function renderHRec(){
   $("hrInfo").innerHTML=`금액 <b>${c.a}</b>/${c.an} · 문장 <b>${c.s}</b>/${c.sn}`;
   $("hrTabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.t===hrTab));
   $("hrHint").textContent=hrTab==="a"?"쉼표(,)에서 반 박자 쉬고, 금액을 다시 알려 주듯 또박또박 읽어 주세요. 평소보다 조금 천천히요."
-    :"쉼표에서는 살짝, 마침표 뒤에는 한 박자 쉬고 질문을 읽어 주세요. 가게에서 친절하게 알려 주듯이요.";
+    :"쉼표에서 살짝 쉬면서, 가게에서 가격을 친절하게 알려 주듯이 읽어 주세요.";
   $("hrLine").innerHTML=l.units.map(u=>`<span>${u}</span>`).join(" ");
   $("hrNo").textContent=`${hrIdx+1} / ${L.length}`;
   $("hrPlay").disabled=!HV.lineDone(l);
@@ -1759,6 +1761,8 @@ function renderPlay(){
   $("speak").hidden=g;$("gbox").hidden=!g;
   if(c){if(c.k==="sent")$("gtext").innerHTML=sentHTML(c,false);else $("gtext").textContent=toKo(c.t)+" 원";}
   $("gbox").querySelector(".ghint").textContent=c&&c.k==="sent"?"보호자가 문장을 읽어 주세요":"보호자가 읽어 주세요";
+  {const q=$("askq"),on=!!(c&&c.k==="sent"&&c.hv&&c.askShown);q.hidden=!on;
+   if(on)q.innerHTML=`<b>${c.items[c.ask][0]}</b> 가격을 적어 주세요`;}
   const nm=$("num");nm.textContent=input?fmt(input):"0";nm.classList.toggle("empty",!input);
   $("go").disabled=!input;
   $("showAns").hidden=!(c&&c.tries>0&&!c.rv);
