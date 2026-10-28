@@ -1226,7 +1226,10 @@ const HV=(()=>{
   const sentOK=()=>on()&&!!sent(2);
 
   // ---- 재생: 조각 사이 쉬는 시간 (금액을 다시 물어본 사람에게 또박또박 알려 주듯) ----
-  function gapAfter(k){
+  /* 조각 사이 '실제로 조용한 시간'(조각 앞뒤에 남은 여유 포함). 문장 속 가격("삼천, 오백 원이에요")은
+     한 금액으로 들리게 아주 짧게 */
+  function gapAfter(k,next){
+    if(/^[일이삼사오육칠팔구]?천,$/.test(k)&&next&&/원이(고,|에요\.)$/.test(next))return .1;
     if(k==="만,")return .12;
     if(/만,$/.test(k))return .25;
     if(/^[일이삼사오육칠팔구십백천]+,$/.test(k))return .25;
@@ -1241,7 +1244,12 @@ const HV=(()=>{
     const ctx=getAC(),L=local.get(k);let b=null;
     if(L){const f=new Float32Array(L.pcm.length);for(let i=0;i<f.length;i++)f[i]=L.pcm[i]/32768;b=ctx.createBuffer(1,f.length,L.sr);b.copyToChannel(f,0);}
     else if(baked[k]){try{const ab=await(await fetch("hvoice/"+baked[k])).arrayBuffer();b=await ctx.decodeAudioData(ab);}catch(e){b=null;}}
-    if(b)bufs.set(k,b);return b;
+    if(b){ // 조각 앞뒤 조용한 부분 길이 (쉬는 시간을 계산할 때 빼 줌)
+      const d=b.getChannelData(0),f=Math.max(1,Math.round(b.sampleRate*.01)),N=Math.floor(d.length/f),r=[];
+      for(let i=0;i<N;i++){let a=0;for(let j=i*f;j<(i+1)*f;j++)a+=d[j]*d[j];r.push(Math.sqrt(a/f));}
+      const th=Math.max(...r,1e-6)*.05;let a=0,z=N-1;while(a<N&&r[a]<th)a++;while(z>a&&r[z]<th)z--;
+      b._lead=a*.01;b._tail=(N-1-z)*.01;bufs.set(k,b);}
+    return b;
   }
   let tok=0,srcs=[];
   function stop(){tok++;srcs.forEach(s=>{try{s.stop();}catch(e){}});srcs=[];}
@@ -1252,7 +1260,8 @@ const HV=(()=>{
     if(my!==tok)return;
     const t0=ctx.currentTime+.06;let t=t0;
     bs.forEach((b,i)=>{if(!b)return;const s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(t);srcs.push(s);
-      t+=b.duration;if(i<bs.length-1){const g=gapAfter(keys[i]);t+=slow?g*2+.2:g;}});
+      t+=b.duration;if(i<bs.length-1){const g0=gapAfter(keys[i],keys[i+1]),g=slow?(g0<=.1?.2:g0*2+.2):g0,nb=bs[i+1];
+        t+=Math.max(-.02,g-(b._tail||0)-((nb&&nb._lead)||0));}});
     return t-t0+.06;  // 다 들려주는 데 걸리는 시간(초)
   }
 
