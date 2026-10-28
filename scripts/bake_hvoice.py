@@ -11,7 +11,7 @@ for i, (text, name) in enumerate(sorted(units.items())):
     wav = f"/tmp/hv_{i}.wav"
     open(wav, "wb").write(z.read(name))
     ogg = f"h{i:03d}.ogg"
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", wav, "-ac", "1", "-ar", "24000", "-c:a", "libopus", "-b:a", "40k",
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", wav, "-ac", "1", "-ar", "48000", "-c:a", "libopus", "-b:a", "64k",
                     os.path.join(out, ogg)], check=True)
     idx[text] = ogg
 json.dump({"v": 1, "units": idx}, open(os.path.join(out, "index.json"), "w", encoding="utf-8"), ensure_ascii=False)

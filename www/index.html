@@ -210,6 +210,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .hrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
 .hrgrid button{border:2px solid var(--line);background:var(--key);border-radius:10px;padding:8px 6px;font-size:14px;font-weight:600;text-align:left;word-break:keep-all}
 .hrgrid button.done{border-color:var(--good);background:var(--good-bg);color:var(--good)}
+.hrgrid button.old{border-color:var(--gold);color:var(--gold)}
 .hrgrid button.cur{outline:3px solid var(--accent);outline-offset:1px}
 .rword{font-size:64px;font-weight:800;line-height:1.1}
 .rbtn{width:96px;height:96px;border-radius:50%;border:4px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center}
@@ -474,7 +475,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   </div>
   <div class="card">
     <h2>대본 전체</h2>
-    <div class="note">초록색은 녹음 완료. 눌러서 다시 녹음할 수 있어요.</div>
+    <div class="note">초록색은 녹음 완료, 노란색은 예전 방식(소리가 덜 선명하게 저장)으로 녹음돼서 다시 녹음하면 좋아요. 눌러서 다시 녹음할 수 있어요.</div>
     <div class="hrgrid" id="hrGrid"></div>
   </div>
 </section>
@@ -1302,6 +1303,7 @@ const HV=(()=>{
     ver++;
   }
   const lineDone=l=>l.units.every(have);
+  const lineOld=l=>l.units.some(k=>local.has(k)&&local.get(k).sr<44100);  // 예전 방식(24kHz)으로 녹음한 줄
 
   // ---- 내보내기 / 가져오기 (zip, 압축 없이 WAV) ----
   const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}
@@ -1346,7 +1348,7 @@ const HV=(()=>{
     for(const [k,nmf] of Object.entries(units)){const w=fs[nmf]&&unwav(fs[nmf]);if(!w)continue;local.set(k,w);bufs.delete(k);await DB.put(k,w);n++;}
     ver++;return n;
   }
-  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,exportZip,importZip,gapAfter,
+  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,lineOld,exportZip,importZip,gapAfter,
     counts:()=>({a:lines.filter(l=>l.kind==="a"&&lineDone(l)).length,an:lines.filter(l=>l.kind==="a").length,
       s:lines.filter(l=>l.kind==="s"&&lineDone(l)).length,sn:lines.filter(l=>l.kind==="s").length}),
     any:()=>local.size>0||Object.keys(baked).length>0};
@@ -1368,12 +1370,19 @@ function renderHRec(){
   $("hrPlay").disabled=!HV.lineDone(l);
   $("hrParts").innerHTML=HV.lineDone(l)?l.units.map((u,i)=>`<button type="button" class="chip" data-i="${i}">▶ ${u}</button>`).join(""):"";
   $("hrParts").querySelectorAll("button").forEach(b=>b.onclick=()=>HV.play([l.units[+b.dataset.i]]));
-  $("hrGrid").innerHTML=L.map((x,i)=>`<button type="button" data-i="${i}" class="${HV.lineDone(x)?"done":""}${i===hrIdx?" cur":""}">${x.text}</button>`).join("");
+  $("hrGrid").innerHTML=L.map((x,i)=>`<button type="button" data-i="${i}" class="${HV.lineDone(x)?(HV.lineOld(x)?"old":"done"):""}${i===hrIdx?" cur":""}">${x.text}</button>`).join("");
   $("hrGrid").querySelectorAll("button").forEach(b=>b.onclick=()=>{hrStop(true);hrIdx=+b.dataset.i;hrMsg("");renderHRec();window.scrollTo(0,0);});
 }
 const hrMsg=t=>$("hrState").textContent=t||"빨간 버튼을 누르고 읽은 뒤, 다시 누르세요";
+const RREC=plug("RawRecorder");
 async function hrStart(){
   if(hrStarting||hrCap)return;hrStarting=true;HV.stop();let stream;
+  if(RREC){ // 앱: 안드로이드 녹음기로 처리 없는 원음(48kHz)
+    try{const r=await RREC.start();hrCap={native:true,sr:r.sr,src:r.source};}
+    catch(e){hrStarting=false;hrMsg("마이크를 쓸 수 없어요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 허용해 주세요.");return;}
+    hrStarting=false;$("hrBtn").classList.add("on");hrMsg("녹음 중… 다 읽으면 버튼을 다시 누르세요");
+    clearTimeout(hrTimer);hrTimer=setTimeout(()=>hrStop(),hrTab==="a"?9000:16000);return;
+  }
   try{const ctx=getAC();
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
     const src=ctx.createMediaStreamSource(stream),proc=ctx.createScriptProcessor(4096,1,1),bufs=[];
@@ -1386,13 +1395,22 @@ async function hrStart(){
 }
 async function hrStop(cancel){
   clearTimeout(hrTimer);if(!hrCap)return;const c=hrCap;hrCap=null;
-  try{c.proc.disconnect();c.src.disconnect();}catch(e){}
-  c.stream.getTracks().forEach(t=>t.stop());$("hrBtn").classList.remove("on");
-  if(cancel)return;
-  const len=c.bufs.reduce((a,b)=>a+b.length,0),raw=new Float32Array(len);let o=0;c.bufs.forEach(b=>{raw.set(b,o);o+=b.length;});
+  let raw,sr=c.sr;
+  if(c.native){
+    let r;try{r=await RREC.stop();}catch(e){r=null;}$("hrBtn").classList.remove("on");
+    if(cancel||!r)return;
+    const bin=atob(r.data||""),n=bin.length>>1;raw=new Float32Array(n);
+    for(let i=0;i<n;i++){let v=bin.charCodeAt(i*2)|(bin.charCodeAt(i*2+1)<<8);if(v>=32768)v-=65536;raw[i]=v/32768;}
+    sr=r.sr;
+  }else{
+    try{c.proc.disconnect();c.src.disconnect();}catch(e){}
+    c.stream.getTracks().forEach(t=>t.stop());$("hrBtn").classList.remove("on");
+    if(cancel)return;
+    const len=c.bufs.reduce((a,b)=>a+b.length,0);raw=new Float32Array(len);let o=0;c.bufs.forEach(b=>{raw.set(b,o);o+=b.length;});
+  }
   hrMsg("자르는 중…");
-  const x=await HV.to24k(raw,c.sr),sr=x?24000:c.sr,l=hrLines()[hrIdx];
-  const r=HV.split(x||raw,sr,l.units.length);
+  const l=hrLines()[hrIdx];
+  const r=HV.split(raw,sr,l.units.length);  // 원래 샘플레이트 그대로 (줄이지 않음)
   if(r.err){hrMsg(r.err==="quiet"?"소리가 너무 작아요. 폰을 입에 조금 더 가까이 대고 다시 읽어 주세요."
     :r.err==="short"?"너무 짧게 녹음됐어요. 다시 읽어 주세요."
     :`쉼표 자리에서 조금 더 확실히 쉬어 주세요 (반 박자쯤). ${l.units.length}조각으로 나눠야 해요.`);return;}
