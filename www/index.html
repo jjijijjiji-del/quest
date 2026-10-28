@@ -1413,6 +1413,9 @@ async function hrStop(cancel){
     if(cancel)return;
     const len=c.bufs.reduce((a,b)=>a+b.length,0);raw=new Float32Array(len);let o=0;c.bufs.forEach(b=>{raw.set(b,o);o+=b.length;});
   }
+  // 마이크 소리가 꽉 차서 잘렸는지(딱딱 소리의 원인): 거의 최대인 샘플이 몰려 있으면 다시 녹음 요청
+  {let clip=0,run=0;for(let i=0;i<raw.length;i++){if(Math.abs(raw[i])>.985){run++;if(run>=3)clip++;}else run=0;}
+   if(clip>=2){hrMsg("소리가 너무 커서 일부가 깨졌어요(딱딱 소리). 폰을 입에서 조금 더 떨어뜨리고, 입 바로 앞이 아니라 살짝 옆에 두고 다시 읽어 주세요.");return;}}
   hrMsg("자르는 중…");
   const l=hrLines()[hrIdx];
   const r=HV.split(raw,sr,l.units.length);  // 원래 샘플레이트 그대로 (줄이지 않음)
