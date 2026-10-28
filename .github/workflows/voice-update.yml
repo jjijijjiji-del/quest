@@ -55,6 +55,11 @@ jobs:
           sys.argv=["x","dry"];sys.path.insert(0,"scripts/tts")
           import gen_pack as g
           ix=json.load(open("voice/index.json"));ix["nat"]=True;ix["natS"]=True
+          _,_,sent=g.all_jobs()
+          for lv in sent:
+              old=ix["sent"][str(lv)];new=sent[lv]
+              assert [q["id"] for q in old]==[q["id"] for q in new] and all([i[1] for i in a["items"]]==[i[1] for i in b["items"]] for a,b in zip(old,new))
+          ix["sent"]={str(k):v for k,v in sent.items()}
           vs={v for l in ix["money"].values() for v in l}
           cp=0
           for v in vs:
