@@ -1234,7 +1234,7 @@ const HV=(()=>{
     if(/만,$/.test(k))return .25;
     if(/^[일이삼사오육칠팔구십백천]+,$/.test(k))return .25;
     if(/[은는],$/.test(k))return .2;
-    if(/원이고,$/.test(k))return .35;
+    if(/원이고,$/.test(k))return .8;  // 앞 가격을 머릿속에 담을 시간
     if(/원이에요\.$/.test(k))return .9;
     return .3;
   }

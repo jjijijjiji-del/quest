@@ -51,7 +51,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release download voice-pack -R ${{ github.repository }} -p human-voice.zip -D /tmp; then
+          if [ -f recordings/human-voice.zip ]; then cp recordings/human-voice.zip /tmp/human-voice.zip; fi
+          if [ -f /tmp/human-voice.zip ] || gh release download voice-pack -R ${{ github.repository }} -p human-voice.zip -D /tmp; then
             command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null)
             python3 scripts/bake_hvoice.py /tmp/human-voice.zip www/hvoice && du -sh www/hvoice
           else
