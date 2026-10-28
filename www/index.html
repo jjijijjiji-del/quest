@@ -475,7 +475,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   </div>
   <div class="card">
     <h2>대본 전체</h2>
-    <div class="note">초록색은 녹음 완료, 노란색은 예전 방식(소리가 덜 선명하게 저장)으로 녹음돼서 다시 녹음하면 좋아요. 눌러서 다시 녹음할 수 있어요.</div>
+    <div class="note">초록색은 녹음 완료. 노란색은 녹음 중에 소리가 잠깐 끊긴(딱 소리) 조각이 있는 줄이라 다시 녹음해 주세요. 눌러서 다시 녹음할 수 있어요.</div>
     <div class="hrgrid" id="hrGrid"></div>
   </div>
 </section>
@@ -1304,11 +1304,24 @@ const HV=(()=>{
     return{segs:out};
   }
   async function saveLine(line,segs){
-    for(let i=0;i<segs.length;i++){const k=line.units[i];if(line.kind==="s"&&/^[일이삼사오육칠팔구]?천,$/.test(k)&&have(k))continue;local.set(k,segs[i]);bufs.delete(k);await DB.put(k,segs[i]);}
+    for(let i=0;i<segs.length;i++){const k=line.units[i];dropCache.delete(k);if(line.kind==="s"&&/^[일이삼사오육칠팔구]?천,$/.test(k)&&have(k))continue;local.set(k,segs[i]);bufs.delete(k);await DB.put(k,segs[i]);}
     ver++;
   }
   const lineDone=l=>l.units.every(have);
-  const lineOld=l=>l.units.some(k=>local.has(k)&&local.get(k).src!=="web");  // 지금 방식 전에 녹음한 줄 (다시 녹음 권장)
+  function dropout(pcm,sr){
+    const minRun=Math.round(sr*.004),near=Math.round(sr*.02);let run=0;
+    for(let i=0;i<pcm.length;i++){
+      if(Math.abs(pcm[i])<=2){run++;continue;}
+      if(run>=minRun){const a=i-run;let lb=0,la=0;
+        for(let j=Math.max(0,a-near);j<a;j++)lb=Math.max(lb,Math.abs(pcm[j]));
+        for(let j=i;j<Math.min(pcm.length,i+near);j++)la=Math.max(la,Math.abs(pcm[j]));
+        if(lb>600&&la>600)return true;}
+      run=0;}
+    return false;
+  }
+  const dropCache=new Map();
+  const unitBad=k=>{const L=local.get(k);if(!L)return false;if(!dropCache.has(k))dropCache.set(k,dropout(L.pcm,L.sr));return dropCache.get(k);};
+  const lineOld=l=>l.units.some(unitBad);  // 녹음 중 소리가 끊긴 조각이 있는 줄 (다시 녹음 권장)
 
   // ---- 내보내기 / 가져오기 (zip, 압축 없이 WAV) ----
   const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}
@@ -1353,7 +1366,7 @@ const HV=(()=>{
     for(const [k,nmf] of Object.entries(units)){const w=fs[nmf]&&unwav(fs[nmf]);if(!w)continue;w.src="web";local.set(k,w);bufs.delete(k);await DB.put(k,w);n++;}
     ver++;return n;
   }
-  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,lineOld,exportZip,importZip,gapAfter,
+  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,lineOld,dropout,exportZip,importZip,gapAfter,
     counts:()=>({a:lines.filter(l=>l.kind==="a"&&lineDone(l)).length,an:lines.filter(l=>l.kind==="a").length,
       s:lines.filter(l=>l.kind==="s"&&lineDone(l)).length,sn:lines.filter(l=>l.kind==="s").length}),
     any:()=>local.size>0||Object.keys(baked).length>0};
@@ -1379,7 +1392,7 @@ function renderHRec(){
   $("hrGrid").querySelectorAll("button").forEach(b=>b.onclick=()=>{hrStop(true);hrIdx=+b.dataset.i;hrMsg("");renderHRec();window.scrollTo(0,0);});
 }
 const hrMsg=t=>$("hrState").textContent=t||"빨간 버튼을 누르고 읽은 뒤, 다시 누르세요";
-const RREC=null; // 안드로이드 녹음기 직접 쓰기는 끔: 예전 방식(앱 화면 마이크)이 기본 녹음기처럼 또렷했음
+const RREC=plug("RawRecorder"); // 앱: 안드로이드 녹음기(기본 녹음기 앱과 같은 일반 마이크)로 받음 — 앱 화면 마이크는 폰이 바쁘면 소리를 놓쳐 딱딱 소리가 남
 async function hrStart(){
   if(hrStarting||hrCap)return;hrStarting=true;HV.stop();let stream;
   if(RREC){ // 앱: 안드로이드 녹음기로 처리 없는 원음(48kHz)
@@ -1419,7 +1432,10 @@ async function hrStop(cancel){
   hrMsg("자르는 중…");
   const l=hrLines()[hrIdx];
   const r=HV.split(raw,sr,l.units.length);  // 원래 샘플레이트 그대로 (줄이지 않음)
-  if(r.segs)r.segs.forEach(g=>g.src="web");
+  if(r.segs){r.segs.forEach(g=>g.src=c.native?"native":"web");
+    // 앱 화면 마이크(예비 경로)로 녹음했을 때만 끊김 확인 — 안드로이드 녹음기는 따로 도는 통로라 끊기지 않음
+    const r16=c.native?null:new Int16Array(raw.length);if(r16)for(let i=0;i<raw.length;i++)r16[i]=Math.max(-32767,Math.min(32767,Math.round(raw[i]*32767)));
+    if(r16&&(HV.dropout(r16,sr)||r.segs.some(g=>HV.dropout(g.pcm,g.sr)))){hrMsg("녹음 중에 소리가 잠깐 끊겼어요(딱 소리). 다시 한 번 읽어 주세요.");return;}}
   if(r.err){hrMsg(r.err==="quiet"?"소리가 너무 작아요. 폰을 입에 조금 더 가까이 대고 다시 읽어 주세요."
     :r.err==="short"?"너무 짧게 녹음됐어요. 다시 읽어 주세요."
     :`쉼표 자리에서 조금 더 확실히 쉬어 주세요 (반 박자쯤). ${l.units.length}조각으로 나눠야 해요.`);return;}
