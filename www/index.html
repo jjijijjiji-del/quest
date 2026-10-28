@@ -200,6 +200,17 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 
 /* ---- 목소리 녹음 ---- */
 .rcard{gap:14px}
+.hrline{font-size:30px;font-weight:800;line-height:1.35;word-break:keep-all}
+.hrline span{white-space:nowrap}
+.hrparts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.hrnav{display:grid;grid-template-columns:auto 1fr auto;gap:8px;width:100%}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seg button{border:2px solid var(--line);background:var(--key);border-radius:12px;padding:10px 4px;font-size:15px;font-weight:700}
+.seg button[aria-pressed=true]{border-color:var(--accent);background:var(--surface);color:var(--accent)}
+.hrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+.hrgrid button{border:2px solid var(--line);background:var(--key);border-radius:10px;padding:8px 6px;font-size:14px;font-weight:600;text-align:left;word-break:keep-all}
+.hrgrid button.done{border-color:var(--good);background:var(--good-bg);color:var(--good)}
+.hrgrid button.cur{outline:3px solid var(--accent);outline-offset:1px}
 .rword{font-size:64px;font-weight:800;line-height:1.1}
 .rbtn{width:96px;height:96px;border-radius:50%;border:4px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center}
 .rbtn .rdot{width:44px;height:44px;border-radius:50%;background:var(--bad);transition:all .15s}
@@ -340,6 +351,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   <details class="set" id="set">
     <summary>설정 (보호자용)</summary>
     <div class="opts">
+      <div class="row" id="hvRow"><span class="lab">읽어 주는 목소리 · 보호자가 직접 녹음하면 금액과 문장을 그 목소리로 들려줘요. 문장 듣기는 녹음해야 켜져요</span></div>
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
       <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
       <div class="row" id="dailyRow"><span class="lab">하루 연습 시간 · 시간이 다 되면 풀던 문제까지만 하고 끝나요. 문제 수는 항목별로 걸린 시간을 보고 자동으로 정해요</span></div>
@@ -435,6 +447,35 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
     <div class="note">눌러서 다시 녹음할 수 있어요. 초록색은 녹음 완료, 노란색은 예전 방식으로 녹음돼서 다시 녹음하면 좋아요.</div>
     <button class="chip warn" type="button" id="recWipe" style="align-self:flex-start">녹음 모두 지우기</button>
     <div class="rgrid" id="recGrid"></div>
+  </div>
+</section>
+
+<section id="hrec" hidden>
+  <div class="ptop">
+    <button class="link" type="button" id="hrBack">← 처음으로</button>
+    <div class="pinfo" id="hrInfo"></div>
+  </div>
+  <div class="seg" id="hrTabs"><button type="button" data-t="a">금액 (듣고 쓰기·보고 읽기)</button><button type="button" data-t="s">문장 (문장 듣기)</button></div>
+  <div class="card center rcard">
+    <div class="sub" id="hrHint"></div>
+    <div class="hrline" id="hrLine"></div>
+    <button class="rbtn" type="button" id="hrBtn" aria-label="녹음"><span class="rdot"></span></button>
+    <div class="sub" id="hrState">빨간 버튼을 누르고 읽은 뒤, 다시 누르세요</div>
+    <div class="hrparts" id="hrParts"></div>
+    <div class="hrnav"><button class="btn2" type="button" id="hrPrev">←</button><button class="btn2" type="button" id="hrPlay" disabled>▶ 앱에서 나올 소리</button><button class="btn2" type="button" id="hrNext">다음 →</button></div>
+    <div class="sub" id="hrNo"></div>
+  </div>
+  <div class="card">
+    <h2>다른 폰으로 옮기기</h2>
+    <div class="note">녹음은 이 폰에 저장되고, 앱을 업데이트해도 남아 있어요. 다 녹음하면 '내보내기'로 파일을 만들어 Claude에게 보내 주세요. 앱에 넣어 드리면 환자 폰에 새로 설치해도 녹음이 그대로 들어가요. 직접 옮길 때는 그 폰에서 '가져오기'를 누르세요.</div>
+    <div class="acts"><button class="btn2" type="button" id="hrExport">내보내기</button><button class="btn2" type="button" id="hrImport">가져오기</button></div>
+    <input type="file" id="hrFile" accept=".zip,application/zip,application/octet-stream" hidden>
+    <div class="sub" id="hrXState"></div>
+  </div>
+  <div class="card">
+    <h2>대본 전체</h2>
+    <div class="note">초록색은 녹음 완료. 눌러서 다시 녹음할 수 있어요.</div>
+    <div class="hrgrid" id="hrGrid"></div>
   </div>
 </section>
 
@@ -769,6 +810,7 @@ function learnMath(c,score){
 const mathText=(k,a,b)=>`${Number(a).toLocaleString("ko-KR")} ${OPS[k]} ${Number(b).toLocaleString("ko-KR")}`;
 
 function gen(lv,prev){
+  {const hp=HV.pool(lv);if(hp.length>=4){for(let i=0;i<20;i++){const n=hp[Math.floor(Math.random()*hp.length)];if(n!==prev)return n;}return hp[0];}}
   const pool=PACK&&PACK.money&&PACK.money[lv];
   if(pool&&pool.length){for(let i=0;i<20;i++){const n=pool[Math.floor(Math.random()*pool.length)];if(n!==prev||pool.length<2)return n;}}
   const L=LV[lv];
@@ -939,6 +981,9 @@ function sayRaw(text,rate){
 function speak(){
   if(guardian()||!state.cur)return;
   if(state.cur.k==="seq"){const c=state.cur;if(voiceMode())playSeq(c,c.rp>=2||c.tries>=2);return;}
+  {const c=state.cur,slow=c.rp>=2||c.tries>=2;
+   if(c.k==="sent"&&c.hv){HV.play(c.keys,slow);return;}
+   if(c.k==="listen"||c.k==="read"){const ks=HV.keysFor(c.t);if(ks){HV.play(ks,slow);return;}}}
   if(voiceMode()){const c=state.cur,p=voicePath(c,c.rp>=2||c.tries>=2);if(p)playVoice(p);return;}
   if(recMode()){playClips(clipsFor(state.cur.t),state.cur.rp>=2);return;}
   sayRaw(sayText(),curRate());
@@ -1070,9 +1115,318 @@ function chime(){
 /* ---------- 화면 전환 ---------- */
 const $=id=>document.getElementById(id);
 let screen="home";
+
+/* ===== 내 목소리 (보호자가 직접 녹음) =====
+   자연스러움이 먼저. 사람이 실제로 끊어 말하는 자리(쉼표)에서만 이어 붙이고, 그 사이는 통째로 녹음해요.
+   대본 한 줄을 읽으면 쉼표 자리에서 저절로 잘라 '조각'으로 저장하고, 조각을 조합해 많은 금액·문장을 만들어요.
+   - 금액: 마지막 조각("팔십 원")은 끝맺는 말투, 앞 조각("이십만," "오천팔백,")은 이어지는 말투로 따로 녹음
+   - 문장: "감자는," / "삼천 원이고," / "사과는," / "이천 원이에요." / "사과는 얼마예요?" 조각
+   저장: 이 폰(IndexedDB, 앱을 업데이트해도 남음) + 내보낸 파일을 앱에 넣으면(hvoice/) 새로 설치하는 폰에도 들어감 */
+const HV=(()=>{
+  const ko=n=>toKo(n);
+  const fin=n=>ko(n)+" 원";                       // 끝 조각
+  const non=n=>ko(n)+",";                         // 이어지는 조각: "삼천칠백," "삼천,"
+  const man=m=>(m===1?"":u4(m))+"만,";            // "만," "이만," "사십오만,"
+  const R=(a,b,s)=>{const o=[];for(let x=a;x<=b;x+=s)o.push(x);return o;};
+  const S={
+    F1:R(100,900,100), F2:[140,230,350,380,460,640,720,970], F3:R(1000,9000,1000),
+    F4:[1200,1500,2300,2800,3400,4700,5600,6300,7400,8500], F6:R(10,90,10), F7:[15,23,37,46,68,92], F8:R(1,9,1),
+    MF:[10000,50000,80000,100000,500000,1000000,2500000,3000000,4800000,5600000,7000000,9900000],
+    H:[1400,2300,3700,4200,5600,6800,7300,8500,9200,3100], T:R(1000,9000,1000),
+    M1:R(1,9,1), M2:[10,20,30,45,50,62,70,83,90], M3:[100,300,400,502,700,900]
+  };
+  // ---- 대본: 금액 72줄 (끝 조각마다 한 줄, 앞 조각은 자연스러운 자리에 붙임) ----
+  const lines=[];
+  const addA=parts=>lines.push({id:"a"+lines.filter(l=>l.kind==="a").length,kind:"a",units:parts});
+  S.F1.forEach(n=>addA([fin(n)]));
+  S.F2.forEach(n=>addA([fin(n)]));
+  S.F3.forEach((n,i)=>addA([man(S.M2[(i*2+1)%9]),fin(n)]));
+  S.F4.forEach((n,i)=>addA([i<9?man(S.M1[(i*5+3)%9]):man(S.M3[5]),fin(n)]));
+  S.F6.forEach((n,i)=>addA([non(S.T[(i*4+2)%9]),fin(n)]));
+  S.F7.forEach((n,i)=>addA([non(S.H[i]),fin(n)]));
+  S.F8.forEach((n,i)=>addA([i<4?non(S.H[6+i]):man(S.M3[i-4]),fin(n)]));
+  S.MF.forEach(n=>addA([fin(n)]));
+  // ---- 대본: 문장 16줄 ----
+  const PROD=[["사과",1500,4000],["바나나",2000,5000],["포도",4000,9000],["감자",2000,5000],["양파",1500,4000],["당근",1500,3000],["오이",1500,2500],["우유",2000,3500],
+    ["두부",1500,3000],["라면",1500,4500],["빵",2000,5000],["커피",3000,6000],["김밥",3000,5000],["과자",1500,3500],["계란",5000,9000],["짜장면",6000,8000]];
+  const PRICE=[1500,2000,2500,3000,3500,4000,4500,5000,6000,7500,8000,9000];
+  const nm=w=>w+josaJS(w,"은","는");
+  const topic=w=>nm(w)+",",ask=w=>nm(w)+" 얼마예요?",pI=p=>ko(p)+" 원이고,",pE=p=>ko(p)+" 원이에요.";
+  [["바나나",4500,"사과",3000],["포도",8000,"바나나",5000],["감자",3500,"포도",9000],["양파",2500,"감자",4500],["당근",1500,"양파",3500],["오이",2000,"당근",1500],
+   ["우유",3000,"오이",2500],["두부",2500,"우유",2000],["라면",4000,"두부",2500],["빵",5000,"라면",3000],["커피",6000,"빵",3500],["김밥",3000,"커피",6000],
+   ["과자",2000,"김밥",4000],["계란",9000,"과자",3000],["짜장면",7500,"계란",8000],["사과",2500,"짜장면",7500]]
+   .forEach(([a,p1,q,p2],i)=>lines.push({id:"s"+i,kind:"s",units:[topic(a),pI(p1),topic(q),pE(p2),ask(q)]}));
+  lines.forEach(l=>l.text=l.units.join(" "));
+
+  // ---- 저장된 조각 ----
+  const local=new Map();   // 글 → {sr, pcm:Int16Array}
+  let baked={};            // 글 → 앱에 들어 있는 파일 이름
+  let ver=0;
+  const have=k=>local.has(k)||!!baked[k];
+  const DB=(()=>{let p=null;const open=()=>p=p||new Promise((res,rej)=>{const r=indexedDB.open("hvoice",1);
+      r.onupgradeneeded=()=>r.result.createObjectStore("u");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+    const tx=(m,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction("u",m),q=fn(t.objectStore("u"));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error);}));
+    return{put:(k,v)=>tx("readwrite",s=>s.put(v,k)),
+      all:()=>open().then(db=>new Promise(res=>{const out=[],c=db.transaction("u").objectStore("u").openCursor();
+        c.onsuccess=()=>{const r=c.result;if(r){out.push([r.key,r.value]);r.continue();}else res(out);};c.onerror=()=>res(out);}))};})();
+  const ready=Promise.all([
+    DB.all().then(rows=>rows.forEach(([k,v])=>local.set(k,v))).catch(()=>{}),
+    fetch("hvoice/index.json").then(r=>r.ok?r.json():null).then(j=>{if(j&&j.units)baked=j.units;}).catch(()=>{})
+  ]).then(()=>{ver++;});
+
+  // ---- 금액 묶음: 레벨마다 녹음된 조각으로 만들 수 있는 금액 ----
+  let poolCache={v:-1,pools:{},keys:new Map()};
+  function pools(){
+    if(poolCache.v===ver)return poolCache;
+    const keys=new Map(),P={};
+    const one=a=>a.filter(n=>have(fin(n))).map(n=>[n,[fin(n)]]);
+    const pre=(ps,rest)=>{const o=[];ps.forEach(([v,k])=>{if(!have(k))return;rest.forEach(([n,ks])=>o.push([v+n,[k,...ks]]));});return o;};
+    const pH=S.H.map(h=>[h,non(h)]),pT=S.T.map(t=>[t,non(t)]),pM=a=>a.map(m=>[m*10000,man(m)]);
+    const lo=S.MF.filter(n=>n<100000),mid=S.MF.filter(n=>n>=100000&&n<1000000),hi=S.MF.filter(n=>n>=1000000);
+    const L11=pre(pH.concat(pT),one(S.F7.concat(S.F8)));
+    P[1]=one(S.F1);P[2]=one(S.F2);P[3]=one(S.F3.concat(S.F4));
+    P[4]=pre(pH,one(S.F6));P[5]=pre(pT,one(S.F6));
+    P[6]=pre(pM(S.M1),one(S.F3)).concat(one(lo));P[7]=pre(pM(S.M1),one(S.F4));
+    P[8]=pre(pM(S.M1),one(S.F6).concat(one(S.F2),pre(pT,one(S.F6))));
+    P[9]=pre(pM(S.M2),one(S.F3)).concat(one(mid));
+    P[10]=pre(pM(S.M2),pre(pT,one(S.F6)).concat(one(S.F2),one(S.F6)));
+    P[11]=L11;P[12]=pre(pM(S.M1),L11);P[13]=one(hi);
+    P[14]=pre(pM(S.M3),one(S.F1.concat(S.F6,S.F8,S.F3)));
+    const out={};
+    for(const lv in P){const m=new Map();P[lv].forEach(([n,ks])=>{if(!m.has(n))m.set(n,ks);if(!keys.has(n))keys.set(n,ks);});out[lv]=[...m.keys()];}
+    poolCache={v:ver,pools:out,keys};return poolCache;
+  }
+  const on=()=>state.settings.hv!==false&&(local.size>0||Object.keys(baked).length>0);
+  const pool=lv=>on()?(pools().pools[lv]||[]):[];
+  const keysFor=n=>on()?pools().keys.get(n)||null:null;
+
+  // ---- 문장 만들기 ----
+  function sent(lv){
+    const prods=PROD.filter(p=>have(topic(p[0])));
+    const n=lv<=1?1:lv<=3?2:3;
+    for(let t=0;t<400;t++){
+      const ps=[...prods].sort(()=>Math.random()-.5).slice(0,n);if(ps.length<n)break;
+      const ai=lv<=1?0:lv===2?1:Math.floor(Math.random()*n);
+      if(!have(ask(ps[ai][0])))continue;
+      const used=[],items=[],keys=[];let ok=true;
+      ps.forEach((p,i)=>{if(!ok)return;const end=i<n-1?pI:pE;
+        const c=PRICE.filter(x=>x>=p[1]&&x<=p[2]&&!used.includes(x)&&have(end(x)));
+        if(!c.length){ok=false;return;}const pr=c[Math.floor(Math.random()*c.length)];used.push(pr);
+        items.push([p[0],pr]);keys.push(topic(p[0]),end(pr));});
+      if(!ok)continue;
+      keys.push(ask(ps[ai][0]));
+      return{items,ask:ai,keys};
+    }
+    return lv>1?sent(lv-1):null;
+  }
+  const sentOK=()=>on()&&!!sent(2);
+
+  // ---- 재생: 조각 사이 쉬는 시간 (금액을 다시 물어본 사람에게 또박또박 알려 주듯) ----
+  function gapAfter(k){
+    if(k==="만,")return .12;
+    if(/만,$/.test(k))return .25;
+    if(/^[일이삼사오육칠팔구십백천]+,$/.test(k))return .25;
+    if(/[은는],$/.test(k))return .2;
+    if(/원이고,$/.test(k))return .35;
+    if(/원이에요\.$/.test(k))return .9;
+    return .3;
+  }
+  const bufs=new Map();
+  async function buf(k){
+    if(bufs.has(k))return bufs.get(k);
+    const ctx=getAC(),L=local.get(k);let b=null;
+    if(L){const f=new Float32Array(L.pcm.length);for(let i=0;i<f.length;i++)f[i]=L.pcm[i]/32768;b=ctx.createBuffer(1,f.length,L.sr);b.copyToChannel(f,0);}
+    else if(baked[k]){try{const ab=await(await fetch("hvoice/"+baked[k])).arrayBuffer();b=await ctx.decodeAudioData(ab);}catch(e){b=null;}}
+    if(b)bufs.set(k,b);return b;
+  }
+  let tok=0,srcs=[];
+  function stop(){tok++;srcs.forEach(s=>{try{s.stop();}catch(e){}});srcs=[];}
+  async function play(keys,slow,raw){
+    stop();try{if(vAudio)vAudio.pause();}catch(e){}
+    const my=tok,ctx=getAC();
+    const bs=raw||await Promise.all(keys.map(buf));
+    if(my!==tok)return;
+    let t=ctx.currentTime+.06;
+    bs.forEach((b,i)=>{if(!b)return;const s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(t);srcs.push(s);
+      if(i<bs.length-1){const g=gapAfter(keys[i]);t+=b.duration+(slow?g*2+.2:g);}});
+  }
+
+  // ---- 녹음 → 쉼표 자리에서 자르기 ----
+  async function to24k(raw,sr){
+    if(sr===24000)return raw;
+    try{const oc=new OfflineAudioContext(1,Math.ceil(raw.length*24000/sr),24000),b=oc.createBuffer(1,raw.length,sr);
+      b.copyToChannel(raw,0);const s=oc.createBufferSource();s.buffer=b;s.connect(oc.destination);s.start();return (await oc.startRendering()).getChannelData(0);}
+    catch(e){return null;}
+  }
+  function split(raw,sr,n){
+    const x=new Float32Array(raw.length),rc=1/(2*Math.PI*80),dt=1/sr,al=rc/(rc+dt);
+    let py=0,px=0;for(let i=0;i<raw.length;i++){py=al*(py+raw[i]-px);px=raw[i];x[i]=py;}
+    const f=Math.round(sr*.01),N=Math.floor(x.length/f),rms=[];
+    for(let i=0;i<N;i++){let a=0;for(let j=i*f;j<(i+1)*f;j++)a+=x[j]*x[j];rms.push(Math.sqrt(a/f));}
+    if(N<20)return{err:"short"};
+    const so=[...rms].sort((a,b)=>a-b),floor=so[Math.floor(N*.2)],peak=so[N-1];
+    if(peak<.004)return{err:"quiet"};
+    const th=Math.max(floor*3,peak*.06,.002),v=rms.map(r=>r>th);
+    // 잡음처럼 짧게 튄 소리(30ms 미만)는 조용한 것으로
+    for(let i=0;i<N;){if(!v[i]){i++;continue;}let j=i;while(j<N&&v[j])j++;if(j-i<3)for(let q=i;q<j;q++)v[q]=false;i=j;}
+    const a=v.indexOf(true),b=v.lastIndexOf(true);
+    if(a<0)return{err:"quiet"};
+    const gaps=[];for(let i=a;i<=b;){if(v[i]){i++;continue;}let j=i;while(j<=b&&!v[j])j++;gaps.push({s:i,e:j,len:j-i});i=j;}
+    let cut=[];
+    if(n>1){
+      const c=gaps.filter(g=>g.len>=7).sort((p,q)=>q.len-p.len);
+      if(c.length<n-1)return{err:"gap"};
+      cut=c.slice(0,n-1);
+      const minC=cut[n-2].len,next=c[n-1]?c[n-1].len:0;
+      if(minC<12||(next&&minC<next*1.25))return{err:"gap"};
+      cut.sort((p,q)=>p.s-q.s);
+    }
+    const segs=[];let st=a;
+    cut.concat([{s:b+1,e:N}]).forEach(g=>{segs.push([st,g.s]);st=g.e;});
+    const out=[];
+    for(const [s,e] of segs){
+      let vc=0,vs=0;for(let i=s;i<e;i++)if(v[i]){vc++;vs+=rms[i]*rms[i];}
+      if(vc<10)return{err:"gap"};
+      const s0=Math.max(0,s-4),e0=Math.min(N,e+10),seg=x.slice(s0*f,e0*f);
+      let pk=0;for(let i=0;i<seg.length;i++)pk=Math.max(pk,Math.abs(seg[i]));
+      const g=Math.min(.12/Math.sqrt(vs/vc),.95/pk,25),fade=Math.round(sr*.01),pcm=new Int16Array(seg.length);
+      for(let i=0;i<seg.length;i++){let w=1;if(i<fade)w=i/fade;else if(i>seg.length-fade)w=(seg.length-i)/fade;pcm[i]=Math.max(-32767,Math.min(32767,Math.round(seg[i]*g*w*32767)));}
+      out.push({sr,pcm});
+    }
+    return{segs:out};
+  }
+  async function saveLine(line,segs){
+    for(let i=0;i<segs.length;i++){const k=line.units[i];local.set(k,segs[i]);bufs.delete(k);await DB.put(k,segs[i]);}
+    ver++;
+  }
+  const lineDone=l=>l.units.every(have);
+
+  // ---- 내보내기 / 가져오기 (zip, 압축 없이 WAV) ----
+  const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}
+    return d=>{let c=0xFFFFFFFF;for(let i=0;i<d.length;i++)c=t[(c^d[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0;};})();
+  function wav({sr,pcm}){const b=new ArrayBuffer(44+pcm.length*2),d=new DataView(b),w=(o,s)=>{for(let i=0;i<s.length;i++)d.setUint8(o+i,s.charCodeAt(i));};
+    w(0,"RIFF");d.setUint32(4,36+pcm.length*2,true);w(8,"WAVE");w(12,"fmt ");d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);
+    d.setUint32(24,sr,true);d.setUint32(28,sr*2,true);d.setUint16(32,2,true);d.setUint16(34,16,true);w(36,"data");d.setUint32(40,pcm.length*2,true);
+    new Int16Array(b,44).set(pcm);return new Uint8Array(b);}
+  function unwav(u8){const d=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);let o=12,sr=24000;
+    while(o+8<=u8.length){const id=String.fromCharCode(u8[o],u8[o+1],u8[o+2],u8[o+3]),sz=d.getUint32(o+4,true);
+      if(id==="fmt ")sr=d.getUint32(o+12,true);
+      if(id==="data"){const pcm=new Int16Array(sz/2);for(let i=0;i<pcm.length;i++)pcm[i]=d.getInt16(o+8+i*2,true);return{sr,pcm};}
+      o+=8+sz+(sz&1);}
+    return null;}
+  function zip(files){ // [{name, data:Uint8Array}]
+    const enc=new TextEncoder(),parts=[],cen=[];let off=0;
+    files.forEach(f=>{const nm=enc.encode(f.name),crc=CRC(f.data),h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint32(14,crc,true);h.setUint32(18,f.data.length,true);h.setUint32(22,f.data.length,true);h.setUint16(26,nm.length,true);
+      parts.push(new Uint8Array(h.buffer),nm,f.data);
+      const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);
+      c.setUint32(16,crc,true);c.setUint32(20,f.data.length,true);c.setUint32(24,f.data.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+      cen.push(new Uint8Array(c.buffer),nm);off+=30+nm.length+f.data.length;});
+    const cs=cen.reduce((a,b)=>a+b.length,0),e=new DataView(new ArrayBuffer(22));
+    e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+    const all=parts.concat(cen,[new Uint8Array(e.buffer)]),out=new Uint8Array(all.reduce((a,b)=>a+b.length,0));let p=0;all.forEach(x=>{out.set(x,p);p+=x.length;});return out;}
+  function unzip(u8){ // 압축 없는 zip만
+    const d=new DataView(u8.buffer,u8.byteOffset,u8.byteLength),dec=new TextDecoder(),out={};let o=0;
+    while(o+30<=u8.length&&d.getUint32(o,true)===0x04034b50){
+      const m=d.getUint16(o+8,true),sz=d.getUint32(o+18,true),nl=d.getUint16(o+26,true),el=d.getUint16(o+28,true);
+      const name=dec.decode(u8.subarray(o+30,o+30+nl)),st=o+30+nl+el;
+      if(m===0)out[name]=u8.subarray(st,st+sz);o=st+sz;}
+    return out;}
+  async function exportZip(){
+    const keys=[...local.keys()].sort(),files=[],idx={};
+    keys.forEach((k,i)=>{const nm=`u${String(i).padStart(3,"0")}.wav`;idx[k]=nm;files.push({name:nm,data:wav(local.get(k))});});
+    files.unshift({name:"index.json",data:new TextEncoder().encode(JSON.stringify({v:1,units:idx}))});
+    return{data:zip(files),count:keys.length};
+  }
+  async function importZip(u8){
+    const fs=unzip(u8),ix=fs["index.json"];if(!ix)throw new Error("index");
+    const units=JSON.parse(new TextDecoder().decode(ix)).units||{};let n=0;
+    for(const [k,nmf] of Object.entries(units)){const w=fs[nmf]&&unwav(fs[nmf]);if(!w)continue;local.set(k,w);bufs.delete(k);await DB.put(k,w);n++;}
+    ver++;return n;
+  }
+  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,exportZip,importZip,gapAfter,
+    counts:()=>({a:lines.filter(l=>l.kind==="a"&&lineDone(l)).length,an:lines.filter(l=>l.kind==="a").length,
+      s:lines.filter(l=>l.kind==="s"&&lineDone(l)).length,sn:lines.filter(l=>l.kind==="s").length}),
+    any:()=>local.size>0||Object.keys(baked).length>0};
+})();
+HV.ready.then(()=>{if(screen==="home")renderHome();});
+
+/* ---------- 내 목소리 녹음 화면 ---------- */
+let hrTab="a",hrIdx=0,hrCap=null,hrStarting=false,hrTimer=null,hrLast=null;
+const hrLines=()=>HV.lines.filter(l=>l.kind===hrTab);
+function openHRec(){const L=hrLines();hrIdx=Math.max(0,L.findIndex(l=>!HV.lineDone(l)));hrLast=null;show("hrec");renderHRec();}
+function renderHRec(){
+  const L=hrLines(),l=L[hrIdx],c=HV.counts();
+  $("hrInfo").innerHTML=`금액 <b>${c.a}</b>/${c.an} · 문장 <b>${c.s}</b>/${c.sn}`;
+  $("hrTabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.t===hrTab));
+  $("hrHint").textContent=hrTab==="a"?"쉼표(,)에서 반 박자 쉬고, 금액을 다시 알려 주듯 또박또박 읽어 주세요. 평소보다 조금 천천히요."
+    :"쉼표에서는 살짝, 마침표 뒤에는 한 박자 쉬고 질문을 읽어 주세요. 가게에서 친절하게 알려 주듯이요.";
+  $("hrLine").innerHTML=l.units.map(u=>`<span>${u}</span>`).join(" ");
+  $("hrNo").textContent=`${hrIdx+1} / ${L.length}`;
+  $("hrPlay").disabled=!HV.lineDone(l);
+  $("hrParts").innerHTML=HV.lineDone(l)?l.units.map((u,i)=>`<button type="button" class="chip" data-i="${i}">▶ ${u}</button>`).join(""):"";
+  $("hrParts").querySelectorAll("button").forEach(b=>b.onclick=()=>HV.play([l.units[+b.dataset.i]]));
+  $("hrGrid").innerHTML=L.map((x,i)=>`<button type="button" data-i="${i}" class="${HV.lineDone(x)?"done":""}${i===hrIdx?" cur":""}">${x.text}</button>`).join("");
+  $("hrGrid").querySelectorAll("button").forEach(b=>b.onclick=()=>{hrStop(true);hrIdx=+b.dataset.i;hrMsg("");renderHRec();window.scrollTo(0,0);});
+}
+const hrMsg=t=>$("hrState").textContent=t||"빨간 버튼을 누르고 읽은 뒤, 다시 누르세요";
+async function hrStart(){
+  if(hrStarting||hrCap)return;hrStarting=true;HV.stop();let stream;
+  try{const ctx=getAC();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
+    const src=ctx.createMediaStreamSource(stream),proc=ctx.createScriptProcessor(4096,1,1),bufs=[];
+    proc.onaudioprocess=e=>bufs.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    src.connect(proc);proc.connect(ctx.destination);hrCap={stream,src,proc,bufs,sr:ctx.sampleRate};
+  }catch(e){if(stream)stream.getTracks().forEach(t=>t.stop());hrStarting=false;
+    hrMsg("마이크를 쓸 수 없어요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 허용해 주세요.");return;}
+  hrStarting=false;$("hrBtn").classList.add("on");hrMsg("녹음 중… 다 읽으면 버튼을 다시 누르세요");
+  clearTimeout(hrTimer);hrTimer=setTimeout(()=>hrStop(),hrTab==="a"?9000:16000);
+}
+async function hrStop(cancel){
+  clearTimeout(hrTimer);if(!hrCap)return;const c=hrCap;hrCap=null;
+  try{c.proc.disconnect();c.src.disconnect();}catch(e){}
+  c.stream.getTracks().forEach(t=>t.stop());$("hrBtn").classList.remove("on");
+  if(cancel)return;
+  const len=c.bufs.reduce((a,b)=>a+b.length,0),raw=new Float32Array(len);let o=0;c.bufs.forEach(b=>{raw.set(b,o);o+=b.length;});
+  hrMsg("자르는 중…");
+  const x=await HV.to24k(raw,c.sr),sr=x?24000:c.sr,l=hrLines()[hrIdx];
+  const r=HV.split(x||raw,sr,l.units.length);
+  if(r.err){hrMsg(r.err==="quiet"?"소리가 너무 작아요. 폰을 입에 조금 더 가까이 대고 다시 읽어 주세요."
+    :r.err==="short"?"너무 짧게 녹음됐어요. 다시 읽어 주세요."
+    :`쉼표 자리에서 조금 더 확실히 쉬어 주세요 (반 박자쯤). ${l.units.length}조각으로 나눠야 해요.`);return;}
+  try{await HV.saveLine(l,r.segs);}catch(e){hrMsg("저장하지 못했어요. 다시 해 주세요.");return;}
+  hrMsg("저장했어요. 앱에서는 이렇게 들려요. 괜찮으면 다음으로, 어색하면 다시 녹음하세요.");
+  renderHRec();HV.play(l.units);
+}
+function bindHRec(){
+  $("hrBtn").onclick=()=>{if(hrCap)hrStop();else hrStart();};
+  $("hrPlay").onclick=()=>HV.play(hrLines()[hrIdx].units);
+  $("hrNext").onclick=()=>{hrStop(true);const L=hrLines();let i=L.findIndex((x,j)=>j>hrIdx&&!HV.lineDone(x));if(i<0)i=L.findIndex(x=>!HV.lineDone(x));
+    if(i<0)i=Math.min(hrIdx+1,L.length-1);hrIdx=i;hrMsg("");renderHRec();};
+  $("hrPrev").onclick=()=>{hrStop(true);hrIdx=Math.max(0,hrIdx-1);hrMsg("");renderHRec();};
+  $("hrTabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{hrStop(true);hrTab=b.dataset.t;const L=hrLines();hrIdx=Math.max(0,L.findIndex(l=>!HV.lineDone(l)));hrMsg("");renderHRec();});
+  $("hrBack").onclick=()=>{hrStop(true);HV.stop();show("home");};
+  $("hrExport").onclick=async()=>{
+    const st=$("hrXState");st.textContent="파일 만드는 중…";
+    try{const {data,count}=await HV.exportZip();if(!count){st.textContent="아직 녹음한 게 없어요.";return;}
+      const name=`my-voice-${dkey()}.zip`,FSP=plug("Filesystem"),SH=plug("Share");
+      if(FSP&&SH){let s="";for(let i=0;i<data.length;i+=0x8000)s+=String.fromCharCode.apply(null,data.subarray(i,i+0x8000));
+        const w=await FSP.writeFile({path:name,data:btoa(s),directory:"CACHE"});
+        await SH.share({title:"내 목소리 녹음",text:"듣고 금액 쓰기 녹음 파일",files:[w.uri],dialogTitle:"녹음 파일 보내기"});}
+      else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/zip"}));a.download=name;a.click();}
+      st.textContent=`조각 ${count}개를 담았어요 (${(data.length/1048576).toFixed(1)}MB).`;
+    }catch(e){st.textContent="내보내지 못했어요: "+(e&&e.message||e);}
+  };
+  $("hrImport").onclick=()=>$("hrFile").click();
+  $("hrFile").onchange=async()=>{const f=$("hrFile").files[0],st=$("hrXState");if(!f)return;st.textContent="가져오는 중…";
+    try{const n=await HV.importZip(new Uint8Array(await f.arrayBuffer()));st.textContent=`조각 ${n}개를 가져왔어요.`;renderHRec();}
+    catch(e){st.textContent="이 파일은 가져올 수 없어요. '내보내기'로 만든 파일인지 확인해 주세요.";}
+    $("hrFile").value="";};
+}
+
 const LOCKED=["play","read","calc","seqv"];
 document.addEventListener("touchmove",e=>{if(document.body.classList.contains("lock")&&e.cancelable)e.preventDefault();},{passive:false});
-function show(s){screen=s;document.body.classList.toggle("lock",LOCKED.includes(s));["home","play","placed","done","stats","rec","read","calc","seqv"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
+function show(s){screen=s;document.body.classList.toggle("lock",LOCKED.includes(s));["home","play","placed","done","stats","rec","read","calc","seqv","hrec"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
   if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();if(s==="calc")renderCalc();if(s==="seqv")renderSeq();}
 const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Number(v));
 
@@ -1092,7 +1446,7 @@ function streak(){
   return n;
 }
 const readOK=()=>!!SPEECH;
-const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&(k!=="read"||readOK())&&(k!=="sent"||!!PACK)&&(k!=="seq"||seqOK()));return ks.length?ks:["listen"];};
+const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&(k!=="read"||readOK())&&(k!=="sent"||HV.sentOK())&&(k!=="seq"||seqOK()));return ks.length?ks:["listen"];};
 const WEIGHT={listen:3,sent:2,seq:2,read:1.5,add:1.5,mul:1.5};
 // 하루 문제를 고른 항목들에 고르게 나눔 (앞 항목부터 하나씩 더)
 // 하루 문제를 비중대로 나눔 (듣고 쓰기 3 : 문장 듣기 2 : 나머지 1.5)
@@ -1233,6 +1587,11 @@ if(document.getElementById("openTts")){
   };
 }
 function renderSettings(){
+  {const r=$("hvRow"),c=HV.counts();r.querySelectorAll(".chip").forEach(x=>x.remove());
+   if(state.settings.hv==null)state.settings.hv=true;
+   if(HV.any())chips("hvRow",[[true,"내 목소리"],[false,"앱 목소리"]],"hv");
+   const b=document.createElement("button");b.type="button";b.className="chip";
+   b.textContent=`🎙 내 목소리 녹음 (금액 ${c.a}/${c.an} · 문장 ${c.s}/${c.sn})`;b.onclick=()=>openHRec();r.appendChild(b);}
   {const n=CLIPS.filter(c=>clipBuf.has(c)).length,opts=[];
    if(PACK)opts.push(["voice","앱이 읽기"]);
    else{if(canTTS)opts.push(["app","기계 음성"]);if(recReady())opts.push(["rec","녹음 목소리"]);}
@@ -1249,7 +1608,7 @@ function renderSettingsRest(){
   if(LN)renderRemind();else $("remindRow").hidden=true;
   chips("dailyRow",[[10,"10분"],[15,"15분"],[20,"20분"],[30,"30분"]],"minutes");
   {const row=$("partsRow");row.querySelectorAll(".chip").forEach(c=>c.remove());const P=state.settings.parts;
-   ALLK.filter(k=>(k!=="read"||readOK())&&(k!=="sent"||!!PACK)&&(k!=="seq"||seqOK())).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
+   ALLK.filter(k=>(k!=="read"||readOK())&&(k!=="sent"||HV.sentOK())&&(k!=="seq"||seqOK())).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
      b.textContent=`${TICON[k]} ${TNAME[k]}`;b.setAttribute("aria-pressed",P[k]!==false);
      b.onclick=()=>{const on=P[k]!==false;if(on&&SKILLS().length<=1)return;P[k]=!on;save();renderHome();};row.appendChild(b);});}
   $("styleRow").hidden=$("engineRow").hidden=!!PACK;
@@ -1260,7 +1619,7 @@ function renderSettingsRest(){
   chips("commaRow",[[true,"자동으로 찍기"],[false,"안 찍기"]],"comma");
   chips("sfxRow",[[true,"켜기"],[false,"끄기"]],"sfx");
   document.querySelectorAll(".stepper[data-k]").forEach(el=>{const k=el.dataset.k,s=SK(k);
-    el.hidden=(k==="read"&&!readOK())||(k==="sent"&&!PACK)||(k==="seq"&&!seqOK());el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
+    el.hidden=(k==="read"&&!readOK())||(k==="sent"&&!HV.sentOK())||(k==="seq"&&!seqOK());el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
     el.querySelectorAll("button").forEach(b=>b.onclick=()=>{if(s.level==null)return;const v=s.level+ +b.dataset.d;if(v<1||v>MAXOF(k))return;
       s.level=v;s.win=[];s.since=0;save();renderHome();});});
   $("wipe").textContent=wipeArmed?"정말 지울까요? 한 번 더 누르세요":"기록 모두 지우기";
@@ -1291,10 +1650,12 @@ function newQ(skipIntro){
     save();show("seqv");setTimeout(speak,400);return;
   }
   if(k==="sent"){
-    const pool=PACK.sent[lv]||PACK.sent[1],recent=s.recent||(s.recent=[]);
-    let q;for(let i=0;i<30;i++){q=pool[Math.floor(Math.random()*pool.length)];if(!recent.includes(q.id))break;}
+    // 문장 듣기: 보호자가 녹음한 조각으로 문장을 만듦 (기계 음성 문장은 쓰지 않음)
+    const recent=s.recent||(s.recent=[]);
+    let q;for(let i=0;i<30;i++){q=HV.sent(lv);if(!q)break;q.id=q.items.map(x=>x.join(":")).join("|")+"?"+q.ask;if(!recent.includes(q.id))break;}
+    if(!q){state.lastSkill=null;return newQ(true);}
     s.recent=recent.concat(q.id).slice(-60);
-    state.cur={k,id:q.id,items:q.items,ask:q.ask,t:q.items[q.ask][1],lv,tries:0,rv:false,rp:0,ts:Date.now()};
+    state.cur={k,id:q.id,hv:true,keys:q.keys,items:q.items,ask:q.ask,t:q.items[q.ask][1],lv,tries:0,rv:false,rp:0,ts:Date.now()};
     input="";save();$("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
     show("play");setTimeout(speak,250);return;
   }
@@ -1337,6 +1698,7 @@ function sentHTML(c,mark){
   const nm=w=>w+josaJS(w,"은","는"),wn=v=>Number(v).toLocaleString("ko-KR")+"원",it=c.items;
   const b=(i,x)=>mark&&i===c.ask?`<b class="hl">${x}</b>`:x;
   let body;
+  if(c.hv){const n=it.length;return it.map((x,i)=>b(i,nm(x[0])+" "+wn(x[1]))+(i<n-1?"이고,":"이에요.")).join(" ")+` ${nm(it[c.ask][0])} 얼마예요?`;}
   if(it.length===1)body=`${b(0,nm(it[0][0])+" "+wn(it[0][1]))}이에요. ${nm(it[0][0])} 얼마예요?`;
   else if(it.length===2)body=`${b(0,nm(it[0][0])+" "+wn(it[0][1]))}이고, ${b(1,nm(it[1][0])+" "+wn(it[1][1]))}이에요. ${nm(it[c.ask][0])} 얼마예요?`;
   else body=`${it.map((x,i)=>b(i,nm(x[0])+" "+wn(x[1]))).join(", ")}이에요. ${nm(it[c.ask][0])} 얼마예요?`;
@@ -1853,6 +2215,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&screen===
 buildPad();
 bindSeq();
 bindRec();
+bindHRec();
 bindRead();
 bindCalc();
 show("home");
