@@ -1235,25 +1235,11 @@ const HV=(()=>{
     return .3;
   }
   const bufs=new Map();
-  /* 말소리 없는 구간(조각 앞뒤 여유, 숨 쉬는 틈)의 방 잡음만 부드럽게 줄임 — 말소리와 'ㅅ' 같은 바람 소리는 그대로.
-     잡음 크기는 그 조각에서 가장 조용한 부분으로 잼. 재생할 때 처리해서 이미 녹음한 것에도 적용됨 */
-  function gate(y,sr){
-    const f=Math.max(1,Math.round(sr*.01)),N=Math.floor(y.length/f);if(N<8)return y;
-    const r=[],h=[];
-    for(let i=0;i<N;i++){let a=0,b=0;for(let j=i*f;j<(i+1)*f;j++){a+=y[j]*y[j];if(j>1){const d=y[j]-2*y[j-1]+y[j-2];b+=d*d;}}r.push(Math.sqrt(a/f));h.push(Math.sqrt(b/f));}
-    const q=(arr,p)=>{const s=[...arr].sort((a,b)=>a-b);return s[Math.min(s.length-1,Math.floor(s.length*p))];};
-    const th=Math.max(q(r,.1)*3,q(r,1)*.04),hth=Math.max(q(h,.1)*2.5,q(h,1)*.04);
-    const act=r.map((x,i)=>x>th||h[i]>hth),on=new Array(N).fill(false);
-    act.forEach((a,i)=>{if(a)for(let k=Math.max(0,i-5);k<=Math.min(N-1,i+8);k++)on[k]=true;});
-    const lo=.1,att=Math.exp(-1/(sr*.003)),rel=Math.exp(-1/(sr*.04));let g=on[0]?1:lo;
-    for(let i=0;i<y.length;i++){const t=on[Math.min(N-1,Math.floor(i/f))]?1:lo,c=t>g?att:rel;g=t+(g-t)*c;y[i]*=g;}
-    return y;
-  }
   async function buf(k){
     if(bufs.has(k))return bufs.get(k);
     const ctx=getAC(),L=local.get(k);let b=null;
-    if(L){const f=new Float32Array(L.pcm.length);for(let i=0;i<f.length;i++)f[i]=L.pcm[i]/32768;gate(f,L.sr);b=ctx.createBuffer(1,f.length,L.sr);b.copyToChannel(f,0);}
-    else if(baked[k]){try{const ab=await(await fetch("hvoice/"+baked[k])).arrayBuffer();b=await ctx.decodeAudioData(ab);gate(b.getChannelData(0),b.sampleRate);}catch(e){b=null;}}
+    if(L){const f=new Float32Array(L.pcm.length);for(let i=0;i<f.length;i++)f[i]=L.pcm[i]/32768;b=ctx.createBuffer(1,f.length,L.sr);b.copyToChannel(f,0);}
+    else if(baked[k]){try{const ab=await(await fetch("hvoice/"+baked[k])).arrayBuffer();b=await ctx.decodeAudioData(ab);}catch(e){b=null;}}
     if(b)bufs.set(k,b);return b;
   }
   let tok=0,srcs=[];
@@ -1311,7 +1297,7 @@ const HV=(()=>{
       const prevEnd=si?segs[si-1][1]:0,nextStart=si<segs.length-1?segs[si+1][0]:N;
       const s0=Math.max(0,prevEnd+Math.floor((s-prevEnd)/2),s-8),e0=Math.min(N,e+12,e+Math.floor((nextStart-e)/2)),seg=x.slice(s0*f,e0*f);
       let pk=0;for(let i=0;i<seg.length;i++)pk=Math.max(pk,Math.abs(seg[i]));
-      const g=Math.min(.12/Math.sqrt(vs/vc),.95/pk,25),fade=Math.round(sr*.01),pcm=new Int16Array(seg.length);
+      const g=Math.min(.12/Math.sqrt(vs/vc),.95/pk,8),fade=Math.round(sr*.01),pcm=new Int16Array(seg.length);
       for(let i=0;i<seg.length;i++){let w=1;if(i<fade)w=i/fade;else if(i>seg.length-fade)w=(seg.length-i)/fade;pcm[i]=Math.max(-32767,Math.min(32767,Math.round(seg[i]*g*w*32767)));}
       out.push({sr,pcm});
     }
@@ -1322,7 +1308,7 @@ const HV=(()=>{
     ver++;
   }
   const lineDone=l=>l.units.every(have);
-  const lineOld=l=>l.units.some(k=>local.has(k)&&local.get(k).sr<44100);  // 예전 방식(24kHz)으로 녹음한 줄
+  const lineOld=l=>l.units.some(k=>local.has(k)&&local.get(k).src!=="web");  // 지금 방식 전에 녹음한 줄 (다시 녹음 권장)
 
   // ---- 내보내기 / 가져오기 (zip, 압축 없이 WAV) ----
   const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}
@@ -1364,10 +1350,10 @@ const HV=(()=>{
   async function importZip(u8){
     const fs=unzip(u8),ix=fs["index.json"];if(!ix)throw new Error("index");
     const units=JSON.parse(new TextDecoder().decode(ix)).units||{};let n=0;
-    for(const [k,nmf] of Object.entries(units)){const w=fs[nmf]&&unwav(fs[nmf]);if(!w)continue;local.set(k,w);bufs.delete(k);await DB.put(k,w);n++;}
+    for(const [k,nmf] of Object.entries(units)){const w=fs[nmf]&&unwav(fs[nmf]);if(!w)continue;w.src="web";local.set(k,w);bufs.delete(k);await DB.put(k,w);n++;}
     ver++;return n;
   }
-  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,lineOld,exportZip,importZip,gapAfter,gate,
+  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,lineOld,exportZip,importZip,gapAfter,
     counts:()=>({a:lines.filter(l=>l.kind==="a"&&lineDone(l)).length,an:lines.filter(l=>l.kind==="a").length,
       s:lines.filter(l=>l.kind==="s"&&lineDone(l)).length,sn:lines.filter(l=>l.kind==="s").length}),
     any:()=>local.size>0||Object.keys(baked).length>0};
@@ -1393,7 +1379,7 @@ function renderHRec(){
   $("hrGrid").querySelectorAll("button").forEach(b=>b.onclick=()=>{hrStop(true);hrIdx=+b.dataset.i;hrMsg("");renderHRec();window.scrollTo(0,0);});
 }
 const hrMsg=t=>$("hrState").textContent=t||"빨간 버튼을 누르고 읽은 뒤, 다시 누르세요";
-const RREC=plug("RawRecorder");
+const RREC=null; // 안드로이드 녹음기 직접 쓰기는 끔: 예전 방식(앱 화면 마이크)이 기본 녹음기처럼 또렷했음
 async function hrStart(){
   if(hrStarting||hrCap)return;hrStarting=true;HV.stop();let stream;
   if(RREC){ // 앱: 안드로이드 녹음기로 처리 없는 원음(48kHz)
@@ -1430,6 +1416,7 @@ async function hrStop(cancel){
   hrMsg("자르는 중…");
   const l=hrLines()[hrIdx];
   const r=HV.split(raw,sr,l.units.length);  // 원래 샘플레이트 그대로 (줄이지 않음)
+  if(r.segs)r.segs.forEach(g=>g.src="web");
   if(r.err){hrMsg(r.err==="quiet"?"소리가 너무 작아요. 폰을 입에 조금 더 가까이 대고 다시 읽어 주세요."
     :r.err==="short"?"너무 짧게 녹음됐어요. 다시 읽어 주세요."
     :`쉼표 자리에서 조금 더 확실히 쉬어 주세요 (반 박자쯤). ${l.units.length}조각으로 나눠야 해요.`);return;}
