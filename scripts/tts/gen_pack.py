@@ -180,6 +180,28 @@ def cap_by_text(w, sr, text, th=0.02, report=None):
     return np.concatenate(out)
 
 
+def syl_rate(w, sr, text, th=0.02):
+    """소리 나는 시간 1초에 몇 글자를 읽는지"""
+    import numpy as np
+    f = int(sr * .02)
+    n = len(w) // f
+    if n < 3:
+        return None
+    lv = np.abs(w[:n * f]).reshape(n, f).max(axis=1)
+    loud = (lv > th * max(lv.max(), 1e-6)).sum() * .02
+    syl = sum(1 for ch in text if "가" <= ch <= "힣")
+    return syl / loud if loud > 0 else None
+
+
+def tempo(w, sr, factor):
+    """음 높이는 그대로 두고 빠르기만 바꿈 (factor < 1 이면 느리게)"""
+    import numpy as np
+    out = subprocess.run(["ffmpeg", "-loglevel", "error", "-f", "f32le", "-ar", str(sr), "-ac", "1", "-i", "-",
+                          "-filter:a", f"atempo={factor:.3f}", "-f", "f32le", "-"],
+                         input=np.asarray(w, dtype=np.float32).tobytes(), capture_output=True, check=True).stdout
+    return np.frombuffer(out, dtype=np.float32).copy()
+
+
 def josa(word, a, b):
     """받침 있으면 a(은/이), 없으면 b(는/가)"""
     c = ord(word[-1]) - 0xAC00
@@ -468,14 +490,14 @@ UPDATE_WORDS = {"g11_3"}
 
 
 def update_jobs():
-    """이번에 새로 만들 것: 문장 끊어 읽기(n) 중 아직 예전 방식인 것 ('만' 없는 문장), 그리고 '무'→'부추' 바꾼 문장 전부"""
+    """이번에 새로 만들 것: 문장 끊어 읽기(n) 전부 (질문 빠르기 맞추기, 낱말 안 쉼 없애기), '무'→'부추' 문장은 s·c도"""
     jobs, _, _ = all_jobs()
     out = []
     for j in jobs:
         if j[3] != "sent":
             continue
         buchu = any(it[0] == "부추" for it in j[4]["items"])
-        if (j[2] == "n" and ("만," not in j[1][0] or buchu)) or (buchu and j[2] in ("s", "c")):
+        if j[2] == "n" or (buchu and j[2] in ("s", "c")):
             out.append(j)
     return out
 
@@ -574,6 +596,11 @@ def main(shard, nshard, only=None, recheck_dir=None, words=False, update=False):
                   if j:
                       parts.append(np.zeros(int(sr * (.7 if sv == "c" else .9 if sv == "n" else .5)), dtype=np.float32))  # 문장과 질문 사이
                   parts.append(synth(t, sp, steps))
+              if kind == "sent" and sv == "n" and len(texts) == 2:
+                  # 짧은 질문은 목소리가 더 빨리 읽어서, 본문과 같은 빠르기(1초에 몇 글자)로 늘림
+                  rb, rq = syl_rate(parts[0], sr, texts[0]), syl_rate(parts[2], sr, texts[1])
+                  if rb and rq and rq > rb * 1.03:
+                      parts[2] = tempo(parts[2], sr, max(0.7, rb / rq))
               w = np.concatenate(parts)
               w = w / max(np.abs(w).max(), 1e-6) * 0.92
               heard = hear(w)
