@@ -2088,6 +2088,14 @@ function parseKoNum(str){
   for(const r of runs)if(r.length>bl){bl=r.length;best=parseRun(r);}
   return best;
 }
+// 인식기가 금액 중간에 "원"이나 다른 말을 끼워 넣어 숫자가 둘로 나뉜 경우("400만 원 500원")를 위해 숫자 부분을 모두 이어서도 읽어 봄
+function parseKoJoined(str){
+  const s=String(str).replace(/[,\s.]/g,"").replace(/영|공/g,"0");
+  const runs=s.match(/[0-9일이삼사오육륙칠팔구십백천만]+/g)||[];
+  return runs.length>1?parseRun(runs.join("")):null;
+}
+// h가 t의 앞자리만인지 (예: 4,000,500 → 4,000,000): 중간에 쉬어서 인식이 앞부분에서 끝난 경우
+const highPart=(h,t)=>h>0&&h<t&&[10,100,1000,1e4,1e5,1e6,1e7].some(p=>Math.floor(t/p)*p===h);
 let listening=false;
 function fitNum(){
   const el=$("rNum"),len=el.textContent.length||1,w=Math.min(window.innerWidth,520)-70;
@@ -2117,6 +2125,7 @@ function handleHeard(ms,err){
   const c=state.cur;if(!c){renderRead();return;}
   const h=$("rHeard");
   if(!ms.length){
+    c.cont=null;
     h.className="rheard";
     h.textContent=err===9?"마이크를 허용해야 해요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 켜 주세요."
       :err===100?"이 폰에서 음성 인식을 쓸 수 없어요. Google 앱이 설치되어 있는지 확인해 주세요."
@@ -2126,13 +2135,21 @@ function handleHeard(ms,err){
   }
   // 인식기가 가장 그럴듯하다고 고른 첫 번째 결과로만 판정 (숫자가 하나도 없을 때만 다음 후보를 봄)
   let said=ms[0];if(!NUMCH.test(said)){const alt=ms.find(m=>NUMCH.test(m));if(alt)said=alt;}
-  const heard=parseKoNum(said);
+  if(c.cont){said=c.cont+" "+said;c.cont=null;}
+  let heard=parseKoNum(said);
+  if(heard!==c.t&&parseKoJoined(said)===c.t)heard=c.t;
+  // 앞부분만 들렸으면(중간에 쉬어서 인식이 끝남) 저절로 이어서 들음 — 한 번만
+  if(heard!=null&&heard!==c.t&&!c.contUsed&&highPart(heard,c.t)){
+    c.cont=said;c.contUsed=true;h.className="rheard";h.innerHTML=`들린 말: <b>${said}</b><br>이어서 끝까지 읽어 주세요`;
+    setTimeout(()=>doListen(),250);return;}
+  c.contUsed=false;
   if(heard===c.t){
     flushMiss(c);c.said=said;
     h.className="rheard";h.innerHTML=`들린 말: <b>${said}</b>`;$("rbox").className="rbox ok";
     renderRead();onCorrect();return;
   }
   if(c.tries===0&&!c.rv&&heard!=null)c.miss=String(heard);
+  {const L=state.readLog||(state.readLog=[]);L.push({t:c.t,said,at:Date.now()});if(L.length>20)L.splice(0,L.length-20);}
   c.tries++;save();
   h.className="rheard no";
   h.innerHTML=`이렇게 들렸어요: <b>${said}</b>${heard!=null?` (${Number(heard).toLocaleString("ko-KR")}원)`:""}<br>${c.rv?"정답을 듣고 따라 읽어 보세요":"다시 한 번 읽어 볼까요?"}`;
@@ -2228,7 +2245,8 @@ function renderStats(){
     (weak.length?`<div class="wkh">더 연습할 금액 · 맞힌 비율</div>${weak.map(x=>row(x,false,x.acc)).join("")}`:"")+
     (!errs.length&&!weak.length?`<div class="wkh">특별히 약한 부분이 없어요 👍</div>`:"")+
     (good.length?`<div class="wkh">잘하는 부분 · 맞힌 비율</div>${good.map(x=>row(x,true,x.acc)).join("")}`:"")+
-    (errs.length||weak.length?`<div class="note">약한 부분이 들어간 금액이 10문제 중 4문제꼴로 더 나와요.</div>`:"");
+    (errs.length||weak.length?`<div class="note">약한 부분이 들어간 금액이 10문제 중 4문제꼴로 더 나와요.</div>`:"")+
+    (k==="read"&&(state.readLog||[]).length?`<div class="wkh">최근에 틀렸다고 나온 말 · 맞게 읽었는데 틀렸다면 Claude에게 이 화면을 보여 주세요</div>${state.readLog.slice(-8).reverse().map(x=>`<div class="note">${Number(x.t).toLocaleString("ko-KR")}원 → 들린 말 "${x.said}"</div>`).join("")}`:"");
   const recent=keys.slice(-30),lab=recent.map(d=>+d.slice(5,7)+"/"+ +d.slice(8));
   if(!recent.length){
     $("lvChart").innerHTML=$("accChart").innerHTML=`<div class="empty">오늘 문제를 풀면 여기에 그래프가 생겨요</div>`;
