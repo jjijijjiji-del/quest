@@ -2088,12 +2088,6 @@ function parseKoNum(str){
   for(const r of runs)if(r.length>bl){bl=r.length;best=parseRun(r);}
   return best;
 }
-// 인식기가 금액 중간에 "원"이나 다른 말을 끼워 넣어 숫자가 둘로 나뉜 경우("400만 원 500원")를 위해 숫자 부분을 모두 이어서도 읽어 봄
-function parseKoJoined(str){
-  const s=String(str).replace(/[,\s.]/g,"").replace(/영|공/g,"0");
-  const runs=s.match(/[0-9일이삼사오육륙칠팔구십백천만]+/g)||[];
-  return runs.length>1?parseRun(runs.join("")):null;
-}
 // h가 t의 앞자리만인지 (예: 4,000,500 → 4,000,000): 중간에 쉬어서 인식이 앞부분에서 끝난 경우
 const highPart=(h,t)=>h>0&&h<t&&[10,100,1000,1e4,1e5,1e6,1e7].some(p=>Math.floor(t/p)*p===h);
 let listening=false;
@@ -2137,7 +2131,6 @@ function handleHeard(ms,err){
   let said=ms[0];if(!NUMCH.test(said)){const alt=ms.find(m=>NUMCH.test(m));if(alt)said=alt;}
   if(c.cont){said=c.cont+" "+said;c.cont=null;}
   let heard=parseKoNum(said);
-  if(heard!==c.t&&parseKoJoined(said)===c.t)heard=c.t;
   // 앞부분만 들렸으면(중간에 쉬어서 인식이 끝남) 저절로 이어서 들음 — 한 번만
   if(heard!=null&&heard!==c.t&&!c.contUsed&&highPart(heard,c.t)){
     c.cont=said;c.contUsed=true;h.className="rheard";h.innerHTML=`들린 말: <b>${said}</b><br>이어서 끝까지 읽어 주세요`;
