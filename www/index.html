@@ -2286,16 +2286,16 @@ function renderScore(){
   const rows=ds.slice(-14).reverse().map(([d,x])=>`<div class="scrow${d===ld?" last":""}">
       <div class="scd">${dl(d)}</div>
       <div class="scbar"><i style="width:${Math.max(3,x.skill)}%"></i></div>
-      <div class="scv">실력 <b>${x.skill}</b> · 레벨 <b>${x.score}</b></div>
+      <div class="scv">전체 <b>${x.skill}</b> · 현재 <b>${x.score}</b></div>
       <div class="scn">${x.n}문제 · 한 번에 ${x.ok} · 고쳐서 ${x.part} · 못 맞힘 ${x.miss}${x.up?` <span class="scup">레벨↑</span>`:""}</div></div>`).join("");
   el.innerHTML=`<h2>날짜별 성적 <span class="sdate">${ld===dkey()?"오늘":dl(ld)}</span></h2>
     <div class="sc2">
-      <div class="scbox"><div class="l">레벨 점수</div><div class="v">${L.score}<small>점</small></div>${chg(L.score,prev&&prev.score)}<div class="s">지금 레벨에서 맞힌 정도<br>최고 ${bl[1].score}점</div></div>
-      <div class="scbox main"><div class="l">실력 점수</div><div class="v">${L.skill}<small>점</small></div>${chg(L.skill,prev&&prev.skill)}<div class="s">첫 단계 0점 ~ 마지막 단계 100점<br>최고 ${bs[1].skill}점</div></div>
+      <div class="scbox"><div class="l">현재 난이도</div><div class="v">${L.score}<small>점</small></div>${chg(L.score,prev&&prev.score)}<div class="s">지금 단계에서 맞힌 정도<br>최고 ${bl[1].score}점</div></div>
+      <div class="scbox main"><div class="l">전체 난이도</div><div class="v">${L.skill}<small>점</small></div>${chg(L.skill,prev&&prev.skill)}<div class="s">첫 단계 0점 ~ 마지막 단계 100점<br>최고 ${bs[1].skill}점</div></div>
     </div>
     <div class="scparts">${L.parts.map(([k,v,sh,today])=>`<div class="spt${today?"":" old"}"><span>${TICON[k]} ${TNAME[k]}</span><div class="spb"><i style="width:${Math.max(2,v/sh*100)}%"></i></div><b>${Math.round(v)}<small>/${Math.round(sh)}</small></b></div>`).join("")}</div>
     <div class="scper">${L.per.map(([k,x])=>`<span>${TICON[k]} ${TNAME[k]} 한 번에 <b>${x.ok}/${x.n}</b></span>`).join("")}</div>
-    <div class="note">레벨 점수는 그날 푼 레벨에서 얼마나 맞혔는지예요(레벨이 오르면 잠깐 내려갈 수 있어요). 실력 점수는 항목마다 똑같이 나눈 점수를 합친 것이고, 항목 점수는 첫 단계 0점 ~ 마지막 단계 만점이에요. 흐린 항목은 그날 안 풀어서 지난번 점수를 쓴 거예요. 아래 막대는 실력 점수예요.</div>
+    <div class="note">현재 난이도는 그날 푼 단계에서 얼마나 맞혔는지예요(단계가 오르면 잠깐 내려갈 수 있어요). 전체 난이도는 항목마다 똑같이 나눈 점수를 합친 것이고, 항목 점수는 첫 단계 0점 ~ 마지막 단계 만점이에요. 흐린 항목은 그날 안 풀어서 지난번 점수를 쓴 거예요. 아래 막대는 전체 난이도예요.</div>
     <div class="scrows">${rows}</div>`;
 }
 function renderStats(){
