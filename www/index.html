@@ -201,6 +201,15 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 /* ---- 목소리 녹음 ---- */
 .rcard{gap:14px}
 .sth{margin:18px 2px 6px;font-size:18px}
+.sdate{font-size:14px;color:var(--muted);font-weight:600;margin-left:4px}
+.sc2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.scbox{border:2px solid var(--line);border-radius:14px;padding:12px 8px;text-align:center}
+.scbox.main{border-color:var(--accent)}
+.scbox .l{font-size:15px;font-weight:700}
+.scbox .v{font-size:48px;font-weight:800;line-height:1.1;color:var(--accent)}
+.scbox .v small{font-size:18px;margin-left:2px}
+.scbox .s{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+.sdiff{font-size:14px;font-weight:700;color:var(--muted)}.sdiff.good{color:var(--good)}.sdiff.bad{color:var(--bad)}
 .schead{display:flex;gap:14px;align-items:center}
 .scbig{flex:none;text-align:center;min-width:110px}
 .scbig .v{font-size:56px;font-weight:800;line-height:1;color:var(--accent)}
@@ -212,13 +221,13 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .scper{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
 .scper span{background:var(--key);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:14px}
 .scrows{display:flex;flex-direction:column;gap:10px;margin-top:10px}
-.scrow{display:grid;grid-template-columns:96px 1fr 52px;gap:4px 8px;align-items:center}
+.scrow{display:grid;grid-template-columns:84px 1fr auto;gap:4px 8px;align-items:center}
 .scrow.last .scd{font-weight:800}
 .scd{font-size:14px}
 .scup{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:0 4px}
 .scbar{height:14px;border-radius:7px;background:var(--soft);overflow:hidden}
 .scbar i{display:block;height:100%;background:var(--accent);border-radius:7px}
-.scv{text-align:right;font-size:14px}.scv b{font-size:18px}
+.scv{text-align:right;font-size:13px;white-space:nowrap}.scv b{font-size:16px}
 .scn{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-2px}
 .askq{text-align:center;font-size:22px;font-weight:700;padding:6px 0}
 .askq b{color:var(--accent);font-size:26px}
@@ -1874,6 +1883,8 @@ function record(score){
   if(tk.lv0==null&&s.level!=null)tk.lv0=s.level;
   if(t.count===1){const n=new Date();state.habit=(state.habit||[]).concat(+(n.getHours()+n.getMinutes()/60).toFixed(2)).slice(-14);}
   let change=0;const M=MAXOF(k);
+  // 실력 점수용: 1단계에서 0점이면 0, 마지막 단계에서 다 맞히면 1 (문제를 푼 그 단계 기준)
+  tk.sk=(tk.sk||0)+Math.min(1,((c.lv||1)-1+score)/M);
   if(isMath(k))learnMath(c,score);
   if(P){P.hist.push({lv:c.lv,s:score});P.lv=Math.max(1,Math.min(M,c.lv+(score===1?1:score===0?-1:0)));}
   else{
@@ -1889,7 +1900,7 @@ function record(score){
   const day=state.days[t.date]||(state.days[t.date]={});
   day.n=t.count;day.goal=DAILY;day.sec=Math.round(t.sec);day.mins=MINS();
   if(timeUp()||t.count>=DAILY)day.done=true;
-  day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level};
+  day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level,sk:+tk.sk.toFixed(3)};
   state.cur=null;save();
   return change;
 }
@@ -2237,35 +2248,41 @@ function showDone(){
 
 /* ---------- 기록 ---------- */
 let statK="listen";
-/* 날짜별 성적: 모든 항목 합쳐서. 점수 = (한 번에 맞힘 + 고쳐서 맞힘×0.5) ÷ 푼 문제 × 100 */
+/* 날짜별 성적 (모든 항목 합쳐서)
+   레벨 점수 = 지금 레벨에서 얼마나 맞혔나: (한 번에 맞힘 + 고쳐서 맞힘×0.5) ÷ 푼 문제 × 100
+   실력 점수 = 전체 단계 중 어디쯤인가: 1단계에서 0점이면 0점, 마지막 단계에서 다 맞히면 100점 (문제마다 푼 단계로 계산) */
+function skillPts(k,x){
+  if(x.sk!=null)return x.sk;
+  const a=x.lv0??x.lv??1,b=x.lv??x.lv0??1,acc=((x.ok||0)+(x.part||0)*.5)/x.n;  // 예전 기록: 그날 시작·끝 레벨 평균으로 어림
+  return x.n*Math.min(1,((a+b)/2-1+acc)/MAXOF(k));
+}
 function dayScore(day){
-  let n=0,ok=0,part=0,up=false;const per=[];
-  ALLK.forEach(k=>{const x=day[k];if(!x||!x.n)return;n+=x.n;ok+=x.ok||0;part+=x.part||0;per.push([k,x]);if(x.lv0!=null&&x.lv!=null&&x.lv>x.lv0)up=true;});
-  return n?{n,ok,part,miss:Math.max(0,n-ok-part),score:Math.round((ok+part*.5)/n*100),up,per,sec:day.sec||0}:null;
+  let n=0,ok=0,part=0,sk=0,up=false;const per=[];
+  ALLK.forEach(k=>{const x=day[k];if(!x||!x.n)return;const p=skillPts(k,x);n+=x.n;ok+=x.ok||0;part+=x.part||0;sk+=p;
+    per.push([k,x,Math.round(p/x.n*100)]);if(x.lv0!=null&&x.lv!=null&&x.lv>x.lv0)up=true;});
+  return n?{n,ok,part,miss:Math.max(0,n-ok-part),score:Math.round((ok+part*.5)/n*100),skill:Math.round(sk/n*100),up,per}:null;
 }
 function renderScore(){
   const el=$("scoreCard"),wd="일월화수목금토";
   const ds=Object.keys(state.days).sort().map(d=>[d,dayScore(state.days[d])]).filter(x=>x[1]);
   if(!ds.length){el.innerHTML=`<h2>날짜별 성적</h2><div class="empty">오늘 문제를 풀면 여기에 점수가 나와요</div>`;return;}
-  const [ld,L]=ds[ds.length-1],prev=ds.length>1?ds[ds.length-2][1]:null,best=ds.reduce((a,b)=>b[1].score>a[1].score?b:a);
+  const [ld,L]=ds[ds.length-1],prev=ds.length>1?ds[ds.length-2][1]:null;
+  const bestOf=f=>ds.reduce((a,b)=>f(b[1])>f(a[1])?b:a);
   const dl=d=>`${+d.slice(5,7)}/${+d.slice(8)} (${wd[new Date(d+"T12:00:00").getDay()]})`;
-  const diff=prev?L.score-prev.score:null;
+  const chg=(a,b)=>b==null?`<div class="sdiff">첫 기록</div>`:a>b?`<div class="sdiff good">▲ ${a-b}점</div>`:a<b?`<div class="sdiff bad">▼ ${b-a}점</div>`:`<div class="sdiff">지난번과 같음</div>`;
+  const bl=bestOf(x=>x.score),bs=bestOf(x=>x.skill);
   const rows=ds.slice(-14).reverse().map(([d,x])=>`<div class="scrow${d===ld?" last":""}">
       <div class="scd">${dl(d)}</div>
-      <div class="scbar"><i style="width:${Math.max(3,x.score)}%"></i></div>
-      <div class="scv"><b>${x.score}</b>점</div>
+      <div class="scbar"><i style="width:${Math.max(3,x.skill)}%"></i></div>
+      <div class="scv">실력 <b>${x.skill}</b> · 레벨 <b>${x.score}</b></div>
       <div class="scn">${x.n}문제 · 한 번에 ${x.ok} · 고쳐서 ${x.part} · 못 맞힘 ${x.miss}${x.up?` <span class="scup">레벨↑</span>`:""}</div></div>`).join("");
-  el.innerHTML=`<h2>날짜별 성적</h2>
-    <div class="schead">
-      <div class="scbig"><div class="v">${L.score}<small>점</small></div><div class="l">${ld===dkey()?"오늘":dl(ld)} 점수</div></div>
-      <div class="scside">
-        ${diff==null?"":`<div class="${diff>0?"good":diff<0?"bad":""}">${diff>0?"▲ "+diff+"점 올랐어요":diff<0?"▼ "+(-diff)+"점":"지난번과 같아요"} <span>(지난번 ${prev.score}점)</span></div>`}
-        <div>최고 ${best[1].score}점 <span>(${dl(best[0])})</span></div>
-        <div>한 번에 ${L.ok} · 고쳐서 ${L.part} · 못 맞힘 ${L.miss}</div>
-      </div>
+  el.innerHTML=`<h2>날짜별 성적 <span class="sdate">${ld===dkey()?"오늘":dl(ld)}</span></h2>
+    <div class="sc2">
+      <div class="scbox"><div class="l">레벨 점수</div><div class="v">${L.score}<small>점</small></div>${chg(L.score,prev&&prev.score)}<div class="s">지금 레벨에서 맞힌 정도<br>최고 ${bl[1].score}점</div></div>
+      <div class="scbox main"><div class="l">실력 점수</div><div class="v">${L.skill}<small>점</small></div>${chg(L.skill,prev&&prev.skill)}<div class="s">첫 단계 0점 ~ 마지막 단계 100점<br>최고 ${bs[1].skill}점</div></div>
     </div>
-    <div class="scper">${L.per.map(([k,x])=>`<span>${TICON[k]} ${TNAME[k]} <b>${x.ok}/${x.n}</b></span>`).join("")}</div>
-    <div class="note">점수 = 한 번에 맞힌 문제는 1개, 고쳐서 맞힌 문제는 반 개로 쳐서 100점 만점으로 바꾼 것. 레벨이 오른 날(레벨↑)은 문제가 어려워져서 점수가 잠깐 내려갈 수 있어요.</div>
+    <div class="scper">${L.per.map(([k,x,p])=>`<span>${TICON[k]} ${TNAME[k]} <b>${x.ok}/${x.n}</b> · 실력 ${p}</span>`).join("")}</div>
+    <div class="note">레벨 점수는 그날 푼 레벨에서 얼마나 맞혔는지예요(레벨이 오르면 잠깐 내려갈 수 있어요). 실력 점수는 레벨까지 함께 봐서, 어려운 단계를 잘 풀수록 올라가요. 막대는 실력 점수예요.</div>
     <div class="scrows">${rows}</div>`;
 }
 function renderStats(){
