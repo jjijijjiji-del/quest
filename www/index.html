@@ -200,6 +200,26 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 
 /* ---- 목소리 녹음 ---- */
 .rcard{gap:14px}
+.sth{margin:18px 2px 6px;font-size:18px}
+.schead{display:flex;gap:14px;align-items:center}
+.scbig{flex:none;text-align:center;min-width:110px}
+.scbig .v{font-size:56px;font-weight:800;line-height:1;color:var(--accent)}
+.scbig .v small{font-size:20px;margin-left:2px}
+.scbig .l{font-size:14px;color:var(--muted);margin-top:4px}
+.scside{display:flex;flex-direction:column;gap:4px;font-size:15px;font-weight:600}
+.scside span{color:var(--muted);font-weight:500;font-size:13px}
+.scside .good{color:var(--good)}.scside .bad{color:var(--bad)}
+.scper{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.scper span{background:var(--key);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:14px}
+.scrows{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.scrow{display:grid;grid-template-columns:96px 1fr 52px;gap:4px 8px;align-items:center}
+.scrow.last .scd{font-weight:800}
+.scd{font-size:14px}
+.scup{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:0 4px}
+.scbar{height:14px;border-radius:7px;background:var(--soft);overflow:hidden}
+.scbar i{display:block;height:100%;background:var(--accent);border-radius:7px}
+.scv{text-align:right;font-size:14px}.scv b{font-size:18px}
+.scn{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-2px}
 .askq{text-align:center;font-size:22px;font-weight:700;padding:6px 0}
 .askq b{color:var(--accent);font-size:26px}
 .hrline{font-size:30px;font-weight:800;line-height:1.35;word-break:keep-all}
@@ -533,6 +553,8 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
 <section id="stats" hidden>
   <div class="ptop"><button class="link" type="button" id="back2">← 처음으로</button></div>
   <h1>내 기록</h1>
+  <div class="card" id="scoreCard"></div>
+  <h2 class="sth">항목별 자세히</h2>
   <div class="tabs t4" id="stTabs">
     <button type="button" data-t="listen">👂 듣고 쓰기</button>
     <button type="button" data-t="sent">🛒 문장 듣기</button>
@@ -786,17 +808,21 @@ function genMath(k,lv){
   return MLV.add[lv].ex.slice();
 }
 // 약한 구구단이 있으면 10문제 중 4문제꼴로 그 구구단을 냄
+// 최근 5문제 안에 나온 문제는 다시 내지 않음 (7×8과 8×7은 같은 문제로 봄)
 function pickMath(k,lv,prev){
   const s=SK(k),W=s.weak||{},weakKeys=Object.entries(W).filter(([key,w])=>key.startsWith("fact:")&&w.n>=3&&w.m/w.n>=.3).map(([key])=>key);
-  let best=null;
-  for(let i=0;i<300;i++){
-    const q=genMath(k,lv);
-    if(prev&&q[0]===prev[0]&&q[1]===prev[1])continue;
+  const rec=s.recentF||(s.recentF=[]),key=q=>Math.min(q[0],q[1])+"_"+Math.max(q[0],q[1]);
+  const fresh=q=>!rec.includes(key(q))&&!(prev&&key(prev)===key(q));
+  const wantWeak=weakKeys.length>0&&Math.random()<.4;
+  let best=null,pick=null;
+  for(let i=0;i<400;i++){
+    const q=genMath(k,lv);if(!fresh(q))continue;
     if(!best)best=q;
-    if(!weakKeys.length||i===0&&Math.random()>=.4)return q;
-    if(weakKeys.includes(factKey(k,q[0],q[1])))return q;
+    if(!wantWeak||weakKeys.includes(factKey(k,q[0],q[1]))){pick=q;break;}
   }
-  return best||genMath(k,lv);
+  pick=pick||best||genMath(k,lv);
+  rec.push(key(pick));if(rec.length>5)rec.splice(0,rec.length-5);
+  return pick;
 }
 function learnSent(c,ans){
   const s=SK("sent"),W=s.weak||(s.weak={});
@@ -2211,7 +2237,39 @@ function showDone(){
 
 /* ---------- 기록 ---------- */
 let statK="listen";
+/* 날짜별 성적: 모든 항목 합쳐서. 점수 = (한 번에 맞힘 + 고쳐서 맞힘×0.5) ÷ 푼 문제 × 100 */
+function dayScore(day){
+  let n=0,ok=0,part=0,up=false;const per=[];
+  ALLK.forEach(k=>{const x=day[k];if(!x||!x.n)return;n+=x.n;ok+=x.ok||0;part+=x.part||0;per.push([k,x]);if(x.lv0!=null&&x.lv!=null&&x.lv>x.lv0)up=true;});
+  return n?{n,ok,part,miss:Math.max(0,n-ok-part),score:Math.round((ok+part*.5)/n*100),up,per,sec:day.sec||0}:null;
+}
+function renderScore(){
+  const el=$("scoreCard"),wd="일월화수목금토";
+  const ds=Object.keys(state.days).sort().map(d=>[d,dayScore(state.days[d])]).filter(x=>x[1]);
+  if(!ds.length){el.innerHTML=`<h2>날짜별 성적</h2><div class="empty">오늘 문제를 풀면 여기에 점수가 나와요</div>`;return;}
+  const [ld,L]=ds[ds.length-1],prev=ds.length>1?ds[ds.length-2][1]:null,best=ds.reduce((a,b)=>b[1].score>a[1].score?b:a);
+  const dl=d=>`${+d.slice(5,7)}/${+d.slice(8)} (${wd[new Date(d+"T12:00:00").getDay()]})`;
+  const diff=prev?L.score-prev.score:null;
+  const rows=ds.slice(-14).reverse().map(([d,x])=>`<div class="scrow${d===ld?" last":""}">
+      <div class="scd">${dl(d)}</div>
+      <div class="scbar"><i style="width:${Math.max(3,x.score)}%"></i></div>
+      <div class="scv"><b>${x.score}</b>점</div>
+      <div class="scn">${x.n}문제 · 한 번에 ${x.ok} · 고쳐서 ${x.part} · 못 맞힘 ${x.miss}${x.up?` <span class="scup">레벨↑</span>`:""}</div></div>`).join("");
+  el.innerHTML=`<h2>날짜별 성적</h2>
+    <div class="schead">
+      <div class="scbig"><div class="v">${L.score}<small>점</small></div><div class="l">${ld===dkey()?"오늘":dl(ld)} 점수</div></div>
+      <div class="scside">
+        ${diff==null?"":`<div class="${diff>0?"good":diff<0?"bad":""}">${diff>0?"▲ "+diff+"점 올랐어요":diff<0?"▼ "+(-diff)+"점":"지난번과 같아요"} <span>(지난번 ${prev.score}점)</span></div>`}
+        <div>최고 ${best[1].score}점 <span>(${dl(best[0])})</span></div>
+        <div>한 번에 ${L.ok} · 고쳐서 ${L.part} · 못 맞힘 ${L.miss}</div>
+      </div>
+    </div>
+    <div class="scper">${L.per.map(([k,x])=>`<span>${TICON[k]} ${TNAME[k]} <b>${x.ok}/${x.n}</b></span>`).join("")}</div>
+    <div class="note">점수 = 한 번에 맞힌 문제는 1개, 고쳐서 맞힌 문제는 반 개로 쳐서 100점 만점으로 바꾼 것. 레벨이 오른 날(레벨↑)은 문제가 어려워져서 점수가 잠깐 내려갈 수 있어요.</div>
+    <div class="scrows">${rows}</div>`;
+}
 function renderStats(){
+  renderScore();
   const tabs=$("stTabs");if((statK==="read"&&!readOK())||(statK==="sent"&&!PACK)||(statK==="seq"&&!seqOK()))statK="listen";
   tabs.querySelectorAll("button").forEach(b=>{b.hidden=(b.dataset.t==="read"&&!readOK())||(b.dataset.t==="sent"&&!PACK)||(b.dataset.t==="seq"&&!seqOK());b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
   const k=statK,s=SK(k);
