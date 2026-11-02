@@ -43,6 +43,14 @@ h2{font-size:18px;margin:0;font-weight:800}
 .qhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .qcount{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
 .qcount small{font-size:18px;color:var(--muted);font-weight:600}
+.qbar{height:10px;border-radius:5px;background:var(--soft);overflow:hidden}.qbar i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qi{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.qn{font-size:14px;font-weight:700}
+.qc{font-size:14px;color:var(--muted)}.qc b{font-size:22px;color:var(--ink)}
+.qc em{font-style:normal;font-size:11px;font-weight:700;border-radius:6px;padding:1px 5px;margin-left:6px;vertical-align:3px}
+.qc em.up{color:var(--bad);border:1px solid var(--bad)}.qc em.dn{color:var(--good);border:1px solid var(--good)}
+.qlv{font-size:12px;color:var(--muted)}.qlv.up{color:var(--good);font-weight:700}.qlv.dn{color:var(--bad);font-weight:700}
 .dots{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
 .dots i{display:block;height:12px;border-radius:6px;background:var(--soft)}
 .dots i.on{background:var(--accent)}
@@ -382,7 +390,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   </div>
 
   <div class="card" id="questCard"></div>
-  <div class="card" id="levelCard"></div>
+  <div class="card" id="scoreCard"></div>
   <button class="btn2" type="button" id="toStats">📈 내 기록 보기</button>
 
   <details class="set" id="set">
@@ -567,7 +575,8 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
 <section id="stats" hidden>
   <div class="ptop"><button class="link" type="button" id="back2">← 처음으로</button></div>
   <h1>내 기록</h1>
-  <div class="card" id="scoreCard"></div>
+  <h2 class="sth">항목별 레벨</h2>
+  <div class="card" id="levelCard"></div>
   <h2 class="sth">항목별 자세히</h2>
   <div class="tabs t4" id="stTabs">
     <button type="button" data-t="listen">👂 듣고 쓰기</button>
@@ -1624,18 +1633,21 @@ function renderHome(){
   const qc=$("questCard"),lc=$("levelCard"),t=state.today,c=Math.min(t.count,DAILY),fin=!!t.doneShown||t.count>=DAILY||timeUp();
   const first=SKILLS().some(k=>SK(k).level==null);
   qc.innerHTML=`<div class="qhead"><h2>오늘의 문제 <span class="qmin">${fin?`${Math.round((t.sec||0)/60)}분 연습`:t.sec?`남은 시간 약 ${Math.ceil(timeLeft()/60)}분`:`약 ${MINS()}분`}</span></h2><div class="qcount">${c}<small> / ${DAILY}</small></div></div>
-    <div class="dots" style="grid-template-columns:repeat(${Math.min(DAILY,15)},1fr)">${(()=>{const q=quotas(),out=[];SKILLS().forEach(k=>{for(let i=0;i<q[k];i++)out.push(`<i class="d-${k}${i<Math.min(t[k].n,q[k])?" on":""}"></i>`);});return out.join("");})()}</div>
-    ${SKILLS().length>1?(()=>{const q=quotas(),b=baseQuotas();
-      const up=SKILLS().filter(k=>q[k]>b[k]),dn=SKILLS().filter(k=>q[k]<b[k]);
-      return `<div class="sub">${SKILLS().map(k=>`${TICON[k]} ${TNAME[k]} ${q[k]}${q[k]>b[k]?"▲":q[k]<b[k]?"▼":""}`).join(" → ")}</div>`+
-        (up.length||dn.length?`<div class="note">최근 점수에 맞춰 ${[up.length?nameList(up)+" 늘렸어요":"",dn.length?nameList(dn)+" 줄였어요":""].filter(Boolean).join(", ")}.</div>`:"");})():""}
+    <div class="qbar"><i style="width:${Math.min(100,c/Math.max(1,DAILY)*100)}%"></i></div>
+    ${(()=>{const q=quotas(),b=baseQuotas();
+      return `<div class="qgrid">${SKILLS().map(k=>{const s=SK(k),tk=t[k],l0=tk.lv0,l=s.level,d=q[k]-b[k];
+        const lv=l==null?`<span class="qlv">실력 확인 전</span>`:l0!=null&&l!==l0?`<span class="qlv ${l>l0?"up":"dn"}">레벨 ${l0} → ${l}</span>`:`<span class="qlv">레벨 ${l}</span>`;
+        return `<div class="qi"><div class="qn">${TICON[k]} ${TNAME[k]}</div><div class="qc"><b>${Math.min(tk.n,q[k])}</b>/${q[k]}${d>0?`<em class="up">늘림</em>`:d<0?`<em class="dn">줄임</em>`:""}</div>${lv}</div>`;}).join("")}</div>`;})()}
     ${first&&!t.count?`<div class="sub">처음 하는 부분은 짧은 실력 확인부터 시작해요</div>`:""}
     ${fin?`<div class="stamp">✔ 오늘 퀘스트 완료! 한 번에 맞힌 문제 ${ALLK.reduce((a,k)=>a+t[k].ok,0)}개</div>`:""}
     <button class="btn" type="button" id="startBtn">${fin?"더 풀어 보기":t.count||state.cur?"이어서 풀기":"오늘 문제 시작"}</button>
     ${streak()?`<div class="streak">🔥 <span><b>${streak()}</b>일 연속 완료</span></div>`:""}`;
-  lc.innerHTML=SKILLS().map(lvBlock).join(`<hr class="sep">`)+`<div class="note">최근 문제를 대부분 한 번에 맞히면 레벨이 올라가요.${SKILLS().some(isMath)?" 덧셈·곱셈은 빨리 풀수록 점수가 높아요.":""}</div>`;
+  renderLevels();renderScore();
   $("startBtn").onclick=startPlay;
   renderSettings();
+}
+function renderLevels(){
+  $("levelCard").innerHTML=SKILLS().map(lvBlock).join(`<hr class="sep">`)+`<div class="note">최근 문제를 대부분 한 번에 맞히면 레벨이 올라가요.${SKILLS().some(isMath)?" 덧셈·곱셈은 빨리 풀수록 점수가 높아요.":""}</div>`;
 }
 function startPlay(){
   ensureToday();
@@ -1890,6 +1902,8 @@ function record(score){
   let change=0;const M=MAXOF(k);
   // 실력 점수용: 1단계에서 0점이면 0, 마지막 단계에서 다 맞히면 1 (문제를 푼 그 단계 기준)
   tk.sk=(tk.sk||0)+Math.min(1,((c.lv||1)-1+score)/M);
+  s.lh=(s.lh||[]).concat([[c.lv||1,score]]).slice(-20);  // 최근 20문제: [푼 단계, 점수]
+  tk.s20=s.lh.length>=10?+(s.lh.reduce((a,[l,sc])=>a+Math.min(1,(l-1+sc)/M),0)/s.lh.length*100).toFixed(1):null;
   if(isMath(k))learnMath(c,score);
   if(P){P.hist.push({lv:c.lv,s:score});P.lv=Math.max(1,Math.min(M,c.lv+(score===1?1:score===0?-1:0)));}
   else{
@@ -1905,7 +1919,7 @@ function record(score){
   const day=state.days[t.date]||(state.days[t.date]={});
   day.n=t.count;day.goal=DAILY;day.sec=Math.round(t.sec);day.mins=MINS();
   if(timeUp()||t.count>=DAILY)day.done=true;
-  day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level,sk:+tk.sk.toFixed(3)};
+  day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level,sk:+tk.sk.toFixed(3),s20:tk.s20};
   state.cur=null;save();
   return change;
 }
@@ -2264,7 +2278,7 @@ function skillPts(k,x){
 function dayScore(day){
   let n=0,ok=0,part=0,sk=0,up=false;const per=[];
   ALLK.forEach(k=>{const x=day[k];if(!x||!x.n)return;const p=skillPts(k,x);n+=x.n;ok+=x.ok||0;part+=x.part||0;sk+=p;
-    per.push([k,x,Math.round(p/x.n*100)]);if(x.lv0!=null&&x.lv!=null&&x.lv>x.lv0)up=true;});
+    per.push([k,x,x.s20!=null?x.s20:p/x.n*100]);/* 최근 20문제 기준(10문제 넘게 쌓인 뒤), 그 전엔 그날 문제로 */if(x.lv0!=null&&x.lv!=null&&x.lv>x.lv0)up=true;});
   return n?{n,ok,part,miss:Math.max(0,n-ok-part),score:Math.round((ok+part*.5)/n*100),skill:Math.round(sk/n*100),up,per}:null;
 }
 function renderScore(){
@@ -2283,7 +2297,7 @@ function renderScore(){
   const dl=d=>`${+d.slice(5,7)}/${+d.slice(8)} (${wd[new Date(d+"T12:00:00").getDay()]})`;
   const chg=(a,b)=>b==null?`<div class="sdiff">첫 기록</div>`:a>b?`<div class="sdiff good">▲ ${a-b}점</div>`:a<b?`<div class="sdiff bad">▼ ${b-a}점</div>`:`<div class="sdiff">지난번과 같음</div>`;
   const bl=bestOf(x=>x.score),bs=bestOf(x=>x.skill);
-  const rows=ds.slice(-14).reverse().map(([d,x])=>`<div class="scrow${d===ld?" last":""}">
+  const rows=ds.slice(-7).reverse().map(([d,x])=>`<div class="scrow${d===ld?" last":""}">
       <div class="scd">${dl(d)}</div>
       <div class="scbar"><i style="width:${Math.max(3,x.skill)}%"></i></div>
       <div class="scv">실력 <b>${x.skill}</b> · 레벨 <b>${x.score}</b></div>
@@ -2295,11 +2309,11 @@ function renderScore(){
     </div>
     <div class="scparts">${L.parts.map(([k,v,sh,today])=>`<div class="spt${today?"":" old"}"><span>${TICON[k]} ${TNAME[k]}</span><div class="spb"><i style="width:${Math.max(2,v/sh*100)}%"></i></div><b>${Math.round(v)}<small>/${Math.round(sh)}</small></b></div>`).join("")}</div>
     <div class="scper">${L.per.map(([k,x])=>`<span>${TICON[k]} ${TNAME[k]} 한 번에 <b>${x.ok}/${x.n}</b></span>`).join("")}</div>
-    <div class="note">레벨 점수는 그날 푼 레벨에서 얼마나 맞혔는지예요(레벨이 오르면 잠깐 내려갈 수 있어요). 실력 점수는 항목마다 똑같이 나눈 점수를 합친 것이고, 항목 점수는 첫 단계 0점 ~ 마지막 단계 만점이에요. 흐린 항목은 그날 안 풀어서 지난번 점수를 쓴 거예요. 아래 막대는 실력 점수예요.</div>
+    <div class="note">레벨 점수: 그날 푼 레벨에서 맞힌 정도 · 실력 점수: 첫 단계 0점 ~ 마지막 단계 100점 (항목마다 같은 몫, 최근 20문제 기준). 흐린 항목은 그날 안 푼 것, 막대는 실력 점수예요.</div>
     <div class="scrows">${rows}</div>`;
 }
 function renderStats(){
-  renderScore();
+  renderLevels();
   const tabs=$("stTabs");if((statK==="read"&&!readOK())||(statK==="sent"&&!PACK)||(statK==="seq"&&!seqOK()))statK="listen";
   tabs.querySelectorAll("button").forEach(b=>{b.hidden=(b.dataset.t==="read"&&!readOK())||(b.dataset.t==="sent"&&!PACK)||(b.dataset.t==="seq"&&!seqOK());b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
   const k=statK,s=SK(k);
