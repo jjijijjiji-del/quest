@@ -693,12 +693,14 @@ function label(key){
   return key;
 }
 // 실수 유형을 판별할 기회가 있는 금액인지
+/* 그 실수가 나오기 쉬운 금액 — 실수 유형이 약하면 이런 금액을 더 자주 냄
+   (예전엔 거의 모든 금액이 해당돼서 실수 유형에 맞춘 출제가 사실상 안 됐음) */
 const OPP={
-  "err:zdrop":n=>tagsOf(n).some(x=>x.t.startsWith("zero:")),
-  "err:concat":n=>String(n).replace(/0/g,"").length>=2,
-  "err:shift":n=>/0$/.test(String(n)),
-  "err:order":n=>new Set(String(n).replace(/0/g,"")).size>=2,
-  "err:unit":n=>String(n).replace(/0/g,"").length>=2
+  "err:zdrop":n=>tagsOf(n).some(x=>x.t.startsWith("zero:")),                 // 가운데 빈 자리: 3,050 / 40,500
+  "err:concat":n=>piecesOf(n).length>=3||tagsOf(n).some(x=>x.t.startsWith("one:")), // 조각이 많거나 숨은 1: 2,350 / 1,100 / 12,000
+  "err:shift":n=>/00$/.test(String(n))&&String(n).replace(/0+$/,"").length<=2,       // 끝에 0이 많은 짧은 금액: 800 / 45,000 / 9,800
+  "err:order":n=>new Set(String(n).replace(/0/g,"")).size>=3,                 // 다른 숫자가 셋 이상: 9,810
+  "err:unit":n=>Math.floor(n/10000)>=10                                       // 만 앞이 두 자리 이상: 920,000 / 4,500,000
 };
 // 정답 t, 쓴 답 a (숫자 문자열) → 실수 유형
 // 말할 때의 조각: 927,000 → [920000, 7000] (구십이만 / 칠천)
@@ -1870,14 +1872,30 @@ function press(k){
   $("answer").className="answer";if(!state.cur.rv)$("msg").textContent="";
   renderPlay();
 }
+/* 틀렸을 때 어떻게 틀렸는지만 알려 줌 (정답은 안 알려 줌). 두 번째로 틀리면 조금 더 자세히 */
+function errCue(c,ans){
+  if(c.k==="sent"&&c.items&&c.items.length>1&&c.items.some((x,i)=>i!==c.ask&&x[1]===+ans))return "다른 물건 가격이에요.";
+  const t=String(c.t),a=String(+ans),cl=classify(t,a);if(!cl)return null;
+  switch(cl.type){
+    case"shift":return +a>c.t?"자릿수가 하나 많아요.":"자릿수가 하나 모자라요.";
+    case"zdrop":return "빈 자리의 0이 빠졌어요.";
+    case"concat":return "들리는 대로 이어 썼어요. 자릿값을 생각해 보세요.";
+    case"unit":return "숫자는 맞는데 자리가 달라요.";
+    case"order":return "숫자 순서가 바뀌었어요.";
+    case"digit":return c.tries>=1?`앞에서 ${cl.diff[0]+1}번째 숫자가 달라요.`:"숫자 하나가 달라요.";
+    case"len":return a.length<t.length?"자릿수가 모자라요.":"자릿수가 너무 많아요.";
+  }
+  return null;
+}
 function check(){
   if(busy||!input||!state.cur)return;
   const c=state.cur;
   if(+input===c.t)return onCorrect();
+  const cue=c.rv||guardian()?null:errCue(c,input);
   if(c.tries===0&&!c.rv){if(c.k==="sent")learnSent(c,input);else learn("listen",c.t,input);}
   c.tries++;save();busy=true;
   const a=$("answer");a.className="answer no";a.classList.remove("shake");void a.offsetWidth;a.classList.add("shake");
-  $("msg").textContent=c.rv?"정답을 보고 다시 써 보세요":guardian()?"보호자가 한 번 더 읽어 주세요":"다시 들어 보세요 🔊";
+  $("msg").textContent=c.rv?"정답을 보고 다시 써 보세요":guardian()?"보호자가 한 번 더 읽어 주세요":(cue?cue+" ":"")+"다시 들어 보세요 🔊";
   setTimeout(()=>{input="";busy=false;a.className="answer";renderPlay();if(!c.rv)speak();},900);
   renderPlay();
 }
