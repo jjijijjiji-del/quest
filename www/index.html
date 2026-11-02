@@ -1789,9 +1789,11 @@ function newQ(skipIntro){
     input="";save();$("cMsg").textContent="";$("cAns").className="answer";show("calc");return;
   }
   // 레벨 8 이상: 4문제 중 1개꼴로 1원 단위 금액을 섞어 "끝은 항상 0" 요령을 막음
-  let gl=lv;
-  if(!P&&lv>=8&&lv!==11&&lv!==12&&Math.random()<.25)gl=lv>=9?12:11;
-  state.cur={k,t:pickNum(k,gl,state.cur?.t,!P),lv,tries:0,rv:false,rp:0,ts:Date.now()};
+  // 복습: 5문제 중 1개꼴로 지난 단계(최근 7단계 안) 금액 — 레벨 올리기·내리기 계산에서는 뺌
+  let gl=lv,review=false;
+  if(!P&&lv>=3&&Math.random()<.2){review=true;const lo=Math.max(1,lv-7);gl=lo+Math.floor(Math.random()*(lv-lo));}
+  else if(!P&&lv>=8&&lv!==11&&lv!==12&&Math.random()<.25)gl=lv>=9?12:11;
+  state.cur={k,t:pickNum(k,gl,state.cur?.t,!P),lv:review?gl:lv,review,tries:0,rv:false,rp:0,ts:Date.now()};
   input="";save();
   if(k==="read"){$("rHeard").textContent="";$("rHeard").className="rheard";$("rbox").className="rbox";show("read");return;}
   $("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
@@ -1816,7 +1818,8 @@ function progInfo(){
   const c=state.cur,k=c?c.k:"listen",s=SK(k),P=s.placement,n=state.today.count,nm=SKILLS().length>1?TNAME[k]+" ":"";
   if(P)return[`${nm}실력 확인 <b>${Math.min(P.hist.length+1,TN(k))}</b> / ${TN(k)}`,P.hist.length/TN(k)*100];
   const T=MINS()*60,used=state.today.sec||0,over=state.today.doneShown;
-  return[!over?`<b>${n+1}</b> / ${DAILY} · ${nm}레벨 ${s.level}`:`더 풀기 · 오늘 <b>${n+1}</b>번째 · ${nm}레벨 ${s.level}`,Math.min(1,Math.max(n/DAILY,used/T))*100];
+  const rvw=c&&c.review?"복습 · ":"";
+  return[!over?`<b>${n+1}</b> / ${DAILY} · ${nm}${rvw}레벨 ${s.level}`:`더 풀기 · 오늘 <b>${n+1}</b>번째 · ${nm}${rvw}레벨 ${s.level}`,Math.min(1,Math.max(n/DAILY,used/T))*100];
 }
 function sentHTML(c,mark){
   const nm=w=>w+josaJS(w,"은","는"),wn=v=>Number(v).toLocaleString("ko-KR")+"원",it=c.items;
@@ -1946,12 +1949,13 @@ function record(score){
   if(t.count===1){const n=new Date();state.habit=(state.habit||[]).concat(+(n.getHours()+n.getMinutes()/60).toFixed(2)).slice(-14);}
   let change=0;const M=MAXOF(k);
   // 실력 점수용: 1단계에서 0점이면 0, 마지막 단계에서 다 맞히면 1 (문제를 푼 그 단계 기준)
-  tk.sk=(tk.sk||0)+Math.min(1,((c.lv||1)-1+score)/M);
-  s.lh=(s.lh||[]).concat([[c.lv||1,score]]).slice(-20);  // 최근 20문제: [푼 단계, 점수]
-  tk.s20=s.lh.length>=10?+(s.lh.reduce((a,[l,sc])=>a+Math.min(1,(l-1+sc)/M),0)/s.lh.length*100).toFixed(1):null;
+  if(!c.review){ // 복습 문제는 실력 점수에서 뺌 (쉬운 지난 단계라 점수를 깎거나 부풀리지 않게)
+  tk.sk=(tk.sk||0)+Math.min(1,((c.lv||1)-1+score)/M);tk.skn=(tk.skn||0)+1;
+  s.lh=(s.lh||[]).concat([[c.lv||1,score]]).slice(-20);}  // 최근 20문제: [푼 단계, 점수]
+  tk.s20=(s.lh||[]).length>=10?+(s.lh.reduce((a,[l,sc])=>a+Math.min(1,(l-1+sc)/M),0)/s.lh.length*100).toFixed(1):null;
   if(isMath(k))learnMath(c,score);
   if(P){P.hist.push({lv:c.lv,s:score});P.lv=Math.max(1,Math.min(M,c.lv+(score===1?1:score===0?-1:0)));}
-  else{
+  else if(!c.review){
     s.win=(s.win||[]).concat(score).slice(-10);s.since=(s.since||0)+1;
     s.hist=(s.hist||[]).concat(score).slice(-30);
     if(s.since>=6){
@@ -1964,7 +1968,7 @@ function record(score){
   const day=state.days[t.date]||(state.days[t.date]={});
   day.n=t.count;day.goal=DAILY;day.sec=Math.round(t.sec);day.mins=MINS();
   if(timeUp()||t.count>=DAILY)day.done=true;
-  day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level,sk:+tk.sk.toFixed(3),s20:tk.s20};
+  day[k]={n:tk.n,ok:tk.ok,part:tk.part,rv:tk.rv,lv0:tk.lv0,lv:s.level,sk:+(tk.sk||0).toFixed(3),skn:tk.skn||0,s20:tk.s20};
   state.cur=null;save();
   return change;
 }
@@ -2325,7 +2329,7 @@ function skillPts(k,x){
 function dayScore(day){
   let n=0,ok=0,part=0,sk=0,up=false;const per=[];
   ALLK.forEach(k=>{const x=day[k];if(!x||!x.n)return;const p=skillPts(k,x);n+=x.n;ok+=x.ok||0;part+=x.part||0;sk+=p;
-    per.push([k,x,x.s20!=null?x.s20:p/x.n*100]);/* 최근 20문제 기준(10문제 넘게 쌓인 뒤), 그 전엔 그날 문제로 */if(x.lv0!=null&&x.lv!=null&&x.lv>x.lv0)up=true;});
+    per.push([k,x,x.s20!=null?x.s20:p/((x.skn!=null?x.skn:x.n)||1)*100]);/* 최근 20문제 기준(10문제 넘게 쌓인 뒤), 그 전엔 그날 문제로 */if(x.lv0!=null&&x.lv!=null&&x.lv>x.lv0)up=true;});
   return n?{n,ok,part,miss:Math.max(0,n-ok-part),score:Math.round((ok+part*.5)/n*100),skill:Math.round(sk/n*100),up,per}:null;
 }
 function renderScore(){
