@@ -1117,10 +1117,11 @@ function sayRaw(text,rate){
 }
 function speak(){
   if(guardian()||!state.cur)return;
-  if(state.cur.k==="seq"){const c=state.cur;if(voiceMode())playSeq(c,c.rp>=2||c.tries>=2);return;}
+  // 순서 기억·숫자 듣기는 다시 들어도 같은 빠르기 (못 들어서가 아니라 못 붙잡아 둬서 틀림 — 느리게 하면 기억할 시간만 길어짐)
+  if(state.cur.k==="seq"){const c=state.cur;if(voiceMode())playSeq(c,false);return;}
   {const c=state.cur,slow=c.rp>=2||c.tries>=2;
    if(c.k==="dig"){const my=++digTok;digBusy=true;if(screen==="play")renderPlay();
-     HV.play(c.keys,slow,null,c.gaps).then(d=>setTimeout(()=>{if(my===digTok){digBusy=false;if(screen==="play")renderPlay();}},(d||1)*1000+150));return;}
+     HV.play(c.keys,false,null,c.gaps).then(d=>setTimeout(()=>{if(my===digTok){digBusy=false;if(screen==="play")renderPlay();}},(d||1)*1000+150));return;}
    if(c.k==="cmd"){cmdBusy=true;renderCmd();const my=++cmdTok;HV.play(c.keys,slow).then(d=>setTimeout(()=>{if(my===cmdTok){cmdBusy=false;if(screen==="cmdv")renderCmd();}},(d||1)*1000));return;}
    if(c.k==="sent"&&c.hv){HV.play(c.keys,slow).then(d=>{if(d)setTimeout(()=>{if(state.cur===c&&!c.askShown){c.askShown=true;save();if(screen==="play")renderPlay();}},d*1000+300);});return;}
    if(c.k==="listen"||c.k==="read"||c.k==="rep"){const ks=HV.keysFor(c.t);if(ks){HV.play(ks,slow);return;}
@@ -1785,7 +1786,7 @@ function startPlay(){
   if(LN&&!state.settings.askedNotify){state.settings.askedNotify=true;save();askNotify().then(scheduleReminders);}
   const c=state.cur;
   if(c){c.ts=Date.now();if(isMath(c.k)){c.t0=Date.now();show("calc");return;}
-    if(c.k==="seq"){c.taps=[];show("seqv");setTimeout(speak,300);return;}
+    if(c.k==="seq"){c.taps=[];seqBusy=voiceMode()&&!guardian();show("seqv");setTimeout(speak,300);return;}
     if(c.k==="cmd"){c.taps=[];show("cmdv");setTimeout(speak,300);return;}
     const rd=c.k==="read"||c.k==="rep";show(rd?"read":"play");if(c.k!=="read")setTimeout(speak,300);return;}
   newQ();
@@ -1888,7 +1889,7 @@ function newQ(skipIntro){
   if(k==="seq"){
     const q=genSeq(lv);
     state.cur={k,items:q.items,board:q.board,t:0,lv,tries:0,rv:false,rp:0,taps:[],ts:Date.now()};
-    save();show("seqv");setTimeout(speak,400);return;
+    seqBusy=voiceMode()&&!guardian();save();show("seqv");setTimeout(speak,400);return;
   }
   if(k==="dig"){
     // 숫자 듣기: 같은 숫자가 바로 이어지지 않게
@@ -1968,7 +1969,7 @@ function renderPlay(){
   const c=state.cur,[info,w]=progInfo();
   $("pinfo").innerHTML=info;$("pbar").style.width=w+"%";
   const g=guardian();
-  $("speak").querySelector("span").textContent=c&&c.rp>=1?"천천히":"듣기";
+  $("speak").querySelector("span").textContent=c&&c.rp>=1&&c.k!=="dig"?"천천히":"듣기";
   $("speak").hidden=g;$("gbox").hidden=!g;
   if(c){if(c.k==="sent")$("gtext").innerHTML=sentHTML(c,false);else if(c.k==="dig")$("gtext").textContent=digSay(c);else $("gtext").textContent=toKo(c.t)+" 원";}
   const D=!!(c&&c.k==="dig");$("answer").querySelector(".won").hidden=D;
@@ -2195,7 +2196,7 @@ function renderSeq(){
   const g=guardian(),n=c.items.length,taps=c.taps||[];
   $("sSpeak").hidden=g;$("sG").hidden=!g;
   if(g)$("sGtext").textContent=c.items.map(id=>CARD[id]?CARD[id].w:"").join(", ");
-  $("sSpeak").querySelector("span").textContent=seqBusy?"듣는 중…":c.rp>=1?"천천히 다시":"다시 듣기";
+  $("sSpeak").querySelector("span").textContent=seqBusy?"듣는 중…":"다시 듣기";
   if(!$("sMsg").dataset.keep)$("sMsg").textContent=seqBusy?"잘 들어 보세요":c.rv?"번호 순서대로 눌러 보세요":`들은 순서대로 ${n}개를 누르세요`;
   $("slots").innerHTML=Array.from({length:n},(_,i)=>{const id=taps[i];return `<div class="slot${id?" on":""}">${id?`<img src="cards/${id}.webp" alt="">`:i+1}</div>`;}).join("");
   const B=$("board");B.classList.toggle("wait",seqBusy);
