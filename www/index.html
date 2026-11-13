@@ -347,9 +347,14 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .gg .gc.r{background:var(--bad-bg);color:var(--bad);font-weight:700}
 
 /* ---- 순서 기억 ---- */
-#seqv:not([hidden]){height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);
+#seqv:not([hidden]),#cmdv:not([hidden]){height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);
   height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 42px);gap:8px}
+.cboard{width:100%;grid-template-rows:none!important;align-content:center}
+.cboard .ptile{aspect-ratio:1}
+.ctext{flex:none;text-align:center;font-size:19px;font-weight:700;background:var(--soft);border-radius:12px;padding:8px}
 .shead{display:flex;gap:10px;align-items:center;flex:none}
+.speak.wide{padding:12px;font-size:20px;display:flex;align-items:center;justify-content:center;gap:8px}
+.speak.wide span{font-size:17px}
 .speak.sq{flex:none;width:auto;padding:10px 14px;font-size:20px;display:flex;align-items:center;gap:6px}
 .speak.sq span{font-size:15px;font-weight:700}
 .smsg{flex:1;min-width:0;font-size:17px;font-weight:700}
@@ -400,7 +405,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   <details class="set" id="set">
     <summary>설정 (보호자용)</summary>
     <div class="opts">
-      <div class="row" id="hvRow"><span class="lab">읽어 주는 목소리 · 보호자가 직접 녹음하면 금액과 문장을 그 목소리로 들려줘요. 문장 듣기는 녹음해야 켜져요</span></div>
+      <div class="row" id="hvRow"><span class="lab">읽어 주는 목소리 · 보호자가 직접 녹음하면 금액과 문장을 그 목소리로 들려줘요. 문장 듣기·숫자 듣기·지시 따르기는 녹음해야 켜져요</span></div>
       <div class="row" id="modeRow"><span class="lab">누가 읽어 주나요</span></div>
       <div class="row" id="remindRow"><span class="lab">매일 알림 · 오늘 문제를 다 풀면 그날은 더 안 울려요</span><div id="remindBox" style="width:100%;display:flex;flex-direction:column;gap:10px"></div></div>
       <div class="row" id="dailyRow"><span class="lab">하루 연습 시간 · 시간이 다 되면 풀던 문제까지만 하고 끝나요. 문제 수는 항목별로 걸린 시간을 보고 자동으로 정해요</span></div>
@@ -413,6 +418,9 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
       <div class="row"><span class="lab">레벨 직접 바꾸기</span>
         <div class="stepper" data-k="listen"><span class="slab">듣고 쓰기</span><button type="button" data-d="-1" aria-label="듣고 쓰기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="듣고 쓰기 레벨 올리기">+</button></div>
         <div class="stepper" data-k="sent"><span class="slab">문장 듣기</span><button type="button" data-d="-1" aria-label="문장 듣기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="문장 듣기 레벨 올리기">+</button></div>
+        <div class="stepper" data-k="rep"><span class="slab">따라 말하기</span><button type="button" data-d="-1" aria-label="따라 말하기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="따라 말하기 레벨 올리기">+</button></div>
+        <div class="stepper" data-k="dig"><span class="slab">숫자 듣기</span><button type="button" data-d="-1" aria-label="숫자 듣기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="숫자 듣기 레벨 올리기">+</button></div>
+        <div class="stepper" data-k="cmd"><span class="slab">지시 따르기</span><button type="button" data-d="-1" aria-label="지시 따르기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="지시 따르기 레벨 올리기">+</button></div>
         <div class="stepper" data-k="seq"><span class="slab">순서 기억</span><button type="button" data-d="-1" aria-label="순서 기억 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="순서 기억 레벨 올리기">+</button></div>
         <div class="stepper" data-k="read"><span class="slab">보고 읽기</span><button type="button" data-d="-1" aria-label="보고 읽기 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="보고 읽기 레벨 올리기">+</button></div>
         <div class="stepper" data-k="add"><span class="slab">덧셈</span><button type="button" data-d="-1" aria-label="덧셈 레벨 내리기">−</button><b></b><button type="button" data-d="1" aria-label="덧셈 레벨 올리기">+</button></div>
@@ -464,7 +472,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   </div>
   <div class="pbar"><i id="rBar"></i></div>
   <div class="rbox" id="rbox">
-    <div class="sub">소리 내어 읽어 보세요</div>
+    <div class="sub" id="rSub">소리 내어 읽어 보세요</div>
     <div class="rnum" id="rNum"></div>
     <div class="rko" id="rKo" hidden></div>
   </div>
@@ -474,6 +482,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
     <button class="mini" type="button" id="rHint" hidden>🔊 정답 듣기</button>
     <button class="mini primary" type="button" id="rSkip" hidden>다음 문제 →</button>
   </div>
+  <button class="speak wide" type="button" id="rListen" hidden>🔊<span>다시 듣기</span></button>
   <button class="mic" type="button" id="mic"><span class="micic" id="micIc">🎤</span><span id="micTxt">누르고 읽기</span></button>
 </section>
 
@@ -505,7 +514,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
     <button class="link" type="button" id="hrBack">← 처음으로</button>
     <div class="pinfo" id="hrInfo"></div>
   </div>
-  <div class="seg" id="hrTabs"><button type="button" data-t="a">금액 (듣고 쓰기·보고 읽기)</button><button type="button" data-t="s">문장 (문장 듣기)</button></div>
+  <div class="seg" id="hrTabs"><button type="button" data-t="a">금액 (듣고 쓰기·따라 말하기)</button><button type="button" data-t="s">문장 (문장 듣기)</button><button type="button" data-t="d">숫자 (숫자 듣기)</button><button type="button" data-t="c">지시 (지시 따르기)</button></div>
   <div class="card center rcard">
     <div class="sub" id="hrHint"></div>
     <div class="hrline" id="hrLine"></div>
@@ -573,6 +582,30 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   </div>
 </section>
 
+<section id="cmdv" hidden>
+  <div class="ptop">
+    <button class="link" type="button" id="mBack">← 처음으로</button>
+    <div class="pinfo" id="mInfo"></div>
+  </div>
+  <div class="pbar"><i id="mBar"></i></div>
+  <div class="shead">
+    <button class="speak sq" id="mSpeak" type="button">🔊<span>다시 듣기</span></button>
+    <div class="smsg" id="mMsg" aria-live="polite"></div>
+  </div>
+  <div class="gbox" id="mG" hidden>
+    <span class="ghint">보호자가 지시를 읽어 주세요</span>
+    <span class="gtext" id="mGtext" hidden></span>
+    <button class="peek" id="mPeek" type="button">지시 보기</button>
+  </div>
+  <div class="ctext" id="mText" hidden></div>
+  <div class="bwrap"><div class="board cboard" id="mBoard"></div></div>
+  <div class="mrow rrow">
+    <button class="mini" type="button" id="mUndo">⌫ 하나 지우기</button>
+    <button class="mini" type="button" id="mShow" hidden>정답 보기</button>
+    <button class="mini primary" type="button" id="mSkip" hidden>다음 문제 →</button>
+  </div>
+</section>
+
 <section id="placed" hidden></section>
 <section id="done" hidden></section>
 
@@ -585,7 +618,10 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   <div class="tabs t4" id="stTabs">
     <button type="button" data-t="listen">👂 듣고 쓰기</button>
     <button type="button" data-t="sent">🛒 문장 듣기</button>
+    <button type="button" data-t="rep">🗣️ 따라 말하기</button>
+    <button type="button" data-t="dig">🔢 숫자 듣기</button>
     <button type="button" data-t="seq">🧩 순서 기억</button>
+    <button type="button" data-t="cmd">👉 지시 따르기</button>
     <button type="button" data-t="read">👀 보고 읽기</button>
     <button type="button" data-t="add">➕ 덧셈</button>
     <button type="button" data-t="mul">✖️ 곱셈</button>
@@ -629,7 +665,7 @@ const MAXLV=14, TESTN=8;
 Object.defineProperty(window,"DAILY",{get:()=>planTotal()});
 const MINS=()=>state.settings.minutes||20;
 // 한 문제에 걸리는 시간(초) 처음 짐작값. 실제로 푼 시간으로 계속 고쳐 감
-const DEFSEC={listen:40,sent:45,seq:40,read:25,add:20,mul:15};
+const DEFSEC={listen:40,sent:45,rep:30,dig:25,seq:40,cmd:25,read:25,add:20,mul:15};
 
 /* ---------- 숫자 → 한글 ---------- */
 const DN="영일이삼사오육칠팔구";
@@ -680,6 +716,18 @@ const TAGL={
   "seq:middle":"가운데 단어 기억하기",
   "seq:last":"마지막 단어 기억하기",
   "err:seqorder":"물건은 맞는데 순서가 바뀌어요",
+  "dpos:first":"첫 번째 숫자 기억하기",
+  "dpos:middle":"가운데 숫자 기억하기",
+  "dpos:last":"마지막 숫자 기억하기",
+  "err:dorder":"숫자는 맞는데 순서가 바뀌어요",
+  "err:dlen":"숫자 개수를 놓쳐요 (빠뜨리거나 더 씀)",
+  "cmd:2":"'하고' (두 개 누르기)",
+  "cmd:3":"'누르고' (차례대로 두 개)",
+  "cmd:4":"'말고' (하나만 고르기)",
+  "cmd:5":"'보다 먼저' (말한 순서와 반대로)",
+  "cmd:6":"'빼고 다'",
+  "err:cneg":"'말고·빼고' 앞에 들은 그림을 눌러요",
+  "err:corder":"그림은 맞는데 누른 순서가 달라요",
   "err:samecat":"같은 종류의 다른 그림을 눌러요 (오이 → 당근)",
   "err:sound":"소리가 비슷한 그림을 눌러요 (오이 → 오리)"
 };
@@ -810,8 +858,24 @@ const SQLV=[null,
   {n:4,mode:"far",nm:"4개 · 서로 다른 종류",ex:"사과 → 자동차 → 우산 → 곰"},
   {n:4,mode:"sound",nm:"4개 · 같은 종류·비슷한 소리 섞기",ex:"오이 → 당근 → 양파 → 무 (보기에 오리)"},
   {n:5,mode:"mix",nm:"5개 · 섞어서",ex:"사과 → 포도 → 감 → 딸기 → 레몬"}];
-const MAXOF=k=>isMath(k)?8:k==="sent"?4:k==="seq"?6:k==="read"?16:MAXLV;
-const TN=k=>isMath(k)||k==="sent"||k==="seq"?6:TESTN;
+/* 숫자 듣기: 숫자 몇 개를 듣고 그대로 쓰기 (전화번호 연습의 앞 단계). g = 묶음 */
+const DLV=[null,
+  {n:2,g:[2],nm:"숫자 2개",ex:"칠, 삼 → 73"},
+  {n:3,g:[3],nm:"숫자 3개",ex:"사, 구, 일 → 491"},
+  {n:4,g:[4],nm:"숫자 4개",ex:"육, 이, 팔, 오 → 6285"},
+  {n:5,g:[5],nm:"숫자 5개",ex:"삼, 공, 칠, 일, 사 → 30714"},
+  {n:6,g:[3,3],nm:"3개씩 두 묶음",ex:"공육일, 이팔오 → 061 285"},
+  {n:7,g:[3,4],nm:"3개·4개 묶음",ex:"공육일, 이팔오삼 → 061 2853"}];
+/* 지시 따르기: 지시를 듣고 그림 누르기 */
+const CLV=[null,
+  {nm:"하나 누르기",ex:"사과를 누르세요"},
+  {nm:"두 개 누르기 (순서 상관없음)",ex:"사과하고 포도를 누르세요"},
+  {nm:"차례대로 두 개",ex:"사과를 누르고, 포도를 누르세요"},
+  {nm:"말고 (하나만)",ex:"사과 말고 포도를 누르세요"},
+  {nm:"보다 먼저 (순서 반대)",ex:"사과보다 포도를 먼저 누르세요"},
+  {nm:"빼고 다",ex:"사과 빼고 다 누르세요"}];
+const MAXOF=k=>isMath(k)?8:k==="sent"?4:k==="seq"||k==="dig"||k==="cmd"?6:k==="read"?16:MAXLV;
+const TN=k=>isMath(k)||k==="sent"||k==="seq"||k==="dig"||k==="cmd"?6:TESTN;
 const OPS={add:"+",mul:"×"};
 const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 const ansOf=(k,a,b)=>k==="add"?a+b:a*b;
@@ -901,13 +965,13 @@ function gen(lv,prev){
    실력(레벨·약점)은 듣고 쓰기 / 보고 읽기 따로, 하루 문제는 하나로 이어서 */
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-const TNAME={listen:"듣고 쓰기",sent:"문장 듣기",seq:"순서 기억",read:"보고 읽기",add:"덧셈",mul:"곱셈"};
-const TICON={listen:"👂",sent:"🛒",seq:"🧩",read:"👀",add:"➕",mul:"✖️"};
-const ALLK=["listen","sent","seq","read","add","mul"];
+const TNAME={listen:"듣고 쓰기",sent:"문장 듣기",rep:"따라 말하기",dig:"숫자 듣기",seq:"순서 기억",cmd:"지시 따르기",read:"보고 읽기",add:"덧셈",mul:"곱셈"};
+const TICON={listen:"👂",sent:"🛒",rep:"🗣️",dig:"🔢",seq:"🧩",cmd:"👉",read:"👀",add:"➕",mul:"✖️"};
+const ALLK=["listen","sent","rep","dig","seq","cmd","read","add","mul"];
 const freshSkill=()=>({level:null,firstLevel:null,placement:null,weak:{},pair:{},seen:{},win:[],since:0,lastDown:null});
 const freshTk=()=>({n:0,ok:0,part:0,rv:0,lv0:null});
-function fresh(){return{v:3,updatedAt:0,skills:{listen:freshSkill(),sent:freshSkill(),seq:freshSkill(),read:freshSkill(),add:freshSkill(),mul:freshSkill()},cur:null,today:null,days:{},lastSkill:null,
-  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:30,minutes:20,vspeed:"s",parts:{listen:true,sent:true,seq:true,read:true,add:true,mul:true},remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
+function fresh(){return{v:3,updatedAt:0,skills:Object.fromEntries(ALLK.map(k=>[k,freshSkill()])),cur:null,today:null,days:{},lastSkill:null,
+  settings:{mode:"app",readStyle:"num",rate:.75,comma:true,sfx:true,daily:30,minutes:20,vspeed:"s",parts:Object.fromEntries(ALLK.map(k=>[k,true])),remindMode:"auto",reminds:[14],askedNotify:false},habit:[]};}
 // 예전 저장 형식(v2: 듣고 쓰기/보고 읽기를 탭으로 따로 풀던 때)을 옮겨 옴
 function migrate(r){
   const st=fresh();st.settings=Object.assign(st.settings,r.settings||{});st.habit=r.habit||[];
@@ -936,7 +1000,7 @@ try{const r=JSON.parse(localStorage.getItem(KEY)||"null");
     Object.keys(state.days||{}).sort().forEach(d=>{const x=(state.days[d]||{})[k];if(!x||!x.n)return;
       const r=(x.ok+.5*(x.part||0))/x.n;for(let i=0;i<Math.min(x.n,10);i++)h.push(+r.toFixed(2));});
     s.hist=h.slice(-30);});
-  state.settings.parts=Object.assign({listen:true,sent:true,seq:true,read:true,add:true,mul:true},state.settings.parts||{});
+  state.settings.parts=Object.assign(Object.fromEntries(ALLK.map(k=>[k,true])),state.settings.parts||{});
   if(!state.settings.d30){state.settings.d30=true;if((state.settings.daily||20)<30)state.settings.daily=30;}
 }catch(e){}
 (function(){const st=state.settings;if(st.remind!==undefined){if(st.remind<0)st.remindMode="off";else{st.remindMode="manual";st.reminds=[st.remind];}delete st.remind;}})();
@@ -1050,8 +1114,10 @@ function speak(){
   if(guardian()||!state.cur)return;
   if(state.cur.k==="seq"){const c=state.cur;if(voiceMode())playSeq(c,c.rp>=2||c.tries>=2);return;}
   {const c=state.cur,slow=c.rp>=2||c.tries>=2;
+   if(c.k==="dig"){HV.play(c.keys,slow,null,c.gaps);return;}
+   if(c.k==="cmd"){cmdBusy=true;renderCmd();const my=++cmdTok;HV.play(c.keys,slow).then(d=>setTimeout(()=>{if(my===cmdTok){cmdBusy=false;if(screen==="cmdv")renderCmd();}},(d||1)*1000));return;}
    if(c.k==="sent"&&c.hv){HV.play(c.keys,slow).then(d=>{if(d)setTimeout(()=>{if(state.cur===c&&!c.askShown){c.askShown=true;save();if(screen==="play")renderPlay();}},d*1000+300);});return;}
-   if(c.k==="listen"||c.k==="read"){const ks=HV.keysFor(c.t);if(ks){HV.play(ks,slow);return;}
+   if(c.k==="listen"||c.k==="read"||c.k==="rep"){const ks=HV.keysFor(c.t);if(ks){HV.play(ks,slow);return;}
      if(voiceMode()&&!packHas(c.t)){sayRaw(slow?toKoParts(c.t):toKo(c.t)+" 원",.8);return;}}}
   if(voiceMode()){const c=state.cur,p=voicePath(c,c.rp>=2||c.tries>=2);if(p)playVoice(p);return;}
   if(recMode()){playClips(clipsFor(state.cur.t),state.cur.rp>=2);return;}
@@ -1227,6 +1293,20 @@ const HV=(()=>{
    ["김밥",3500,"빵",4600],["빵",3700,"포도",9000],["포도",6000,"감자",3800],["오이",2200,"당근",2500],["바나나",3000,"짜장면",8000],["사과",1900,"양파",4000],
    ["라면",3800,"오이",2000],["계란",9000,"우유",2900],["당근",1000,"짜장면",7000],["우유",2000,"두부",2200],["양파",4000,"바나나",5000],["짜장면",7400,"과자",2100]]
    .forEach(([a,p1,q,p2],i)=>lines.push({id:"s"+i,kind:"s",units:[topic(a),...priceKeys(p1,false),topic(q),...priceKeys(p2,true)]}));  // 질문은 소리 대신 화면 글자로
+  // ---- 대본: 숫자 10줄 ("일, 이, 삼, 사."처럼 이어지는 말투 + 마지막만 끝맺는 말투) ----
+  const DG="공일이삼사오육칠팔구",dNon=d=>DG[d]+",",dFin=d=>DG[d]+".";
+  for(let i=0;i<10;i++){const ds=[(i*3+1)%10,(i*7+4)%10,(i+5)%10,i];
+    lines.push({id:"d"+i,kind:"d",units:[...ds.slice(0,3).map(dNon),dFin(ds[3])]});}
+  // ---- 대본: 지시 20줄 (한 줄에 지시 두 개) ----
+  // 받침 없는 낱말만(를·는이 하나로), 소리 비슷한 짝이 없는 그림 위주
+  const CW=["사과","포도","모자","시계","의자","토끼","기차","우유"];
+  const CF={go:w=>w+"를 누르세요.",first:w=>w+"를 먼저 누르세요.",and:w=>w+"하고,",then:w=>w+"를 누르고,",not:w=>w+" 말고,",than:w=>w+"보다,",exc:w=>w+" 빼고 다 누르세요."};
+  // 단계별 조각: 1 "사과를 누르세요." 2 "사과하고, 포도를 누르세요." 3 "사과를 누르고, 포도를 누르세요."
+  //              4 "사과 말고, 포도를 누르세요." 5 "사과보다, 포도를 먼저 누르세요." 6 "사과 빼고 다 누르세요."
+  const cmdKeys=(lv,a,b)=>lv===1?[CF.go(a)]:lv===2?[CF.and(a),CF.go(b)]:lv===3?[CF.then(a),CF.go(b)]:lv===4?[CF.not(a),CF.go(b)]:lv===5?[CF.than(a),CF.first(b)]:[CF.exc(a)];
+  {const cmds=[];CW.forEach((a,i)=>{const b=j=>CW[(i+j)%8];
+     cmds.push(cmdKeys(2,a,b(1)),cmdKeys(3,a,b(3)),cmdKeys(4,a,b(5)),cmdKeys(5,a,b(7)),cmdKeys(6,a));});
+   for(let j=0;j<cmds.length;j+=2)lines.push({id:"c"+j/2,kind:"c",units:[...cmds[j],...cmds[j+1]]});}
   lines.forEach(l=>l.text=l.units.join(" "));
 
   // ---- 저장된 조각 ----
@@ -1290,12 +1370,35 @@ const HV=(()=>{
   }
   const sentOK=()=>on()&&!!sent(2);
 
+  // ---- 숫자 듣기: 숫자 줄 → 조각과 쉬는 시간 ----
+  // 한 묶음(2~5개)은 숫자마다 반 박자, 묶음이 있으면 묶음 안은 짧게·묶음 사이는 길게 (전화번호 불러 주듯)
+  const digOK=()=>[...Array(10)].every((_,d)=>have(dNon(d))&&have(dFin(d)));
+  function digKeys(str,groups){
+    const keys=[],gaps=[];let i=0;
+    groups.forEach((g,gi)=>{for(let j=0;j<g;j++,i++){const d=+str[i],last=i===str.length-1;keys.push(last?dFin(d):dNon(d));
+      if(!last)gaps.push(j<g-1?(groups.length>1?.12:.55):.65);}});
+    return{keys,gaps};
+  }
+  // ---- 지시 따르기: 녹음된 조각으로 지시 만들기 ----
+  function cmd(lv){
+    for(let t=0;t<300;t++){
+      const a=CW[Math.floor(Math.random()*8)];let b=CW[Math.floor(Math.random()*8)];if(b===a)continue;
+      const keys=cmdKeys(lv,a,b);if(!keys.every(have))continue;
+      const ans=lv===1?[a]:lv===2||lv===3?[a,b]:lv===4?[b]:lv===5?[b,a]:null;  // 6단계: a 빼고 전부
+      return{lv,a,b:lv===1||lv===6?null:b,keys,ans,ordered:lv===3||lv===5};
+    }
+    return lv>1?cmd(lv-1):null;
+  }
+  const cmdOK=()=>CW.filter(w=>have(CF.go(w))).length>=4;
+
   // ---- 재생: 조각 사이 쉬는 시간 (금액을 다시 물어본 사람에게 또박또박 알려 주듯) ----
   /* 조각 사이 '실제로 조용한 시간'(조각 앞뒤에 남은 여유 포함). 문장 속 가격("삼천, 오백 원이에요")은
      한 금액으로 들리게 아주 짧게 */
   function gapAfter(k,next){
     if(/^[일이삼사오육칠팔구]?천,$/.test(k)&&next&&/원이(고,|에요\.)$/.test(next))return .1;
     if(k==="만,")return .12;
+    if(/를 누르고,$/.test(k))return .3;
+    if(/(하고|말고|보다),$/.test(k))return .2;
     if(/만,$/.test(k))return .25;
     if(/^[일이삼사오육칠팔구십백천]+,$/.test(k))return .25;
     if(/[은는],$/.test(k))return .2;
@@ -1318,14 +1421,14 @@ const HV=(()=>{
   }
   let tok=0,srcs=[];
   function stop(){tok++;srcs.forEach(s=>{try{s.stop();}catch(e){}});srcs=[];}
-  async function play(keys,slow,raw){
+  async function play(keys,slow,raw,gaps){
     stop();try{if(vAudio)vAudio.pause();}catch(e){}
     const my=tok,ctx=getAC();
     const bs=raw||await Promise.all(keys.map(buf));
     if(my!==tok)return;
     const t0=ctx.currentTime+.06;let t=t0;
     bs.forEach((b,i)=>{if(!b)return;const s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(t);srcs.push(s);
-      t+=b.duration;if(i<bs.length-1){const g0=gapAfter(keys[i],keys[i+1]),g=slow?(g0<=.1?.2:g0*2+.2):g0,nb=bs[i+1];
+      t+=b.duration;if(i<bs.length-1){const g0=gaps?gaps[i]:gapAfter(keys[i],keys[i+1]),g=!slow?g0:gaps?g0*1.6+.15:(g0<=.1?.2:g0*2+.2),nb=bs[i+1];
         t+=Math.max(-.02,g-(b._tail||0)-((nb&&nb._lead)||0));}});
     return t-t0+.06;  // 다 들려주는 데 걸리는 시간(초)
   }
@@ -1442,9 +1545,8 @@ const HV=(()=>{
     for(const [k,nmf] of Object.entries(units)){const w=fs[nmf]&&unwav(fs[nmf]);if(!w)continue;w.src="web";local.set(k,w);bufs.delete(k);await DB.put(k,w);n++;}
     ver++;return n;
   }
-  return{lines,S,PROD,ready,have,on,pool,keysFor,sent,sentOK,play,stop,buf,split,to24k,saveLine,lineDone,lineOld,dropout,exportZip,importZip,gapAfter,
-    counts:()=>({a:lines.filter(l=>l.kind==="a"&&lineDone(l)).length,an:lines.filter(l=>l.kind==="a").length,
-      s:lines.filter(l=>l.kind==="s"&&lineDone(l)).length,sn:lines.filter(l=>l.kind==="s").length}),
+  return{lines,S,PROD,CW,ready,have,on,pool,keysFor,sent,sentOK,digOK,digKeys,cmd,cmdOK,play,stop,buf,split,to24k,saveLine,lineDone,lineOld,dropout,exportZip,importZip,gapAfter,
+    counts:()=>{const o={};["a","s","d","c"].forEach(t=>{const L=lines.filter(l=>l.kind===t);o[t]=L.filter(lineDone).length;o[t+"n"]=L.length;});return o;},
     any:()=>local.size>0||Object.keys(baked).length>0};
 })();
 HV.ready.then(()=>{if(screen==="home")renderHome();});
@@ -1455,10 +1557,12 @@ const hrLines=()=>HV.lines.filter(l=>l.kind===hrTab);
 function openHRec(){const L=hrLines();hrIdx=Math.max(0,L.findIndex(l=>!HV.lineDone(l)));hrLast=null;show("hrec");renderHRec();}
 function renderHRec(){
   const L=hrLines(),l=L[hrIdx],c=HV.counts();
-  $("hrInfo").innerHTML=`금액 <b>${c.a}</b>/${c.an} · 문장 <b>${c.s}</b>/${c.sn}`;
+  $("hrInfo").innerHTML=`금액 <b>${c.a}</b>/${c.an} · 문장 <b>${c.s}</b>/${c.sn} · 숫자 <b>${c.d}</b>/${c.dn} · 지시 <b>${c.c}</b>/${c.cn}`;
   $("hrTabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.t===hrTab));
   $("hrHint").textContent=hrTab==="a"?"쉼표(,)에서 반 박자 쉬고, 금액을 다시 알려 주듯 또박또박 읽어 주세요. 평소보다 조금 천천히요."
-    :"쉼표에서 살짝 쉬면서, 가게에서 가격을 친절하게 알려 주듯이 읽어 주세요.";
+    :hrTab==="s"?"쉼표에서 살짝 쉬면서, 가게에서 가격을 친절하게 알려 주듯이 읽어 주세요."
+    :hrTab==="d"?"숫자마다 반 박자씩 쉬면서, 전화번호를 불러 주듯 또박또박 읽어 주세요. 마지막 숫자는 끝맺듯이요."
+    :"쉼표에서 살짝, 마침표에서는 한 박자 쉬어 주세요. 옆 사람에게 차근차근 부탁하듯이 읽어 주세요.";
   $("hrLine").innerHTML=l.units.map(u=>`<span>${u}</span>`).join(" ");
   $("hrNo").textContent=`${hrIdx+1} / ${L.length}`;
   $("hrPlay").disabled=!HV.lineDone(l);
@@ -1475,7 +1579,7 @@ async function hrStart(){
     try{const r=await RREC.start();hrCap={native:true,sr:r.sr,src:r.source};}
     catch(e){hrStarting=false;hrMsg("마이크를 쓸 수 없어요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 허용해 주세요.");return;}
     hrStarting=false;$("hrBtn").classList.add("on");hrMsg("녹음 중… 다 읽으면 버튼을 다시 누르세요");
-    clearTimeout(hrTimer);hrTimer=setTimeout(()=>hrStop(),hrTab==="a"?9000:16000);return;
+    clearTimeout(hrTimer);hrTimer=setTimeout(()=>hrStop(),hrTab==="a"||hrTab==="d"?9000:16000);return;
   }
   try{const ctx=getAC();
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
@@ -1485,7 +1589,7 @@ async function hrStart(){
   }catch(e){if(stream)stream.getTracks().forEach(t=>t.stop());hrStarting=false;
     hrMsg("마이크를 쓸 수 없어요. 폰 설정 → 애플리케이션 → 듣고 금액 쓰기 → 권한에서 마이크를 허용해 주세요.");return;}
   hrStarting=false;$("hrBtn").classList.add("on");hrMsg("녹음 중… 다 읽으면 버튼을 다시 누르세요");
-  clearTimeout(hrTimer);hrTimer=setTimeout(()=>hrStop(),hrTab==="a"?9000:16000);
+  clearTimeout(hrTimer);hrTimer=setTimeout(()=>hrStop(),hrTab==="a"||hrTab==="d"?9000:16000);
 }
 async function hrStop(cancel){
   clearTimeout(hrTimer);if(!hrCap)return;const c=hrCap;hrCap=null;
@@ -1545,16 +1649,16 @@ function bindHRec(){
     $("hrFile").value="";};
 }
 
-const LOCKED=["play","read","calc","seqv"];
+const LOCKED=["play","read","calc","seqv","cmdv"];
 document.addEventListener("touchmove",e=>{if(document.body.classList.contains("lock")&&e.cancelable)e.preventDefault();},{passive:false});
-function show(s){screen=s;document.body.classList.toggle("lock",LOCKED.includes(s));["home","play","placed","done","stats","rec","read","calc","seqv","hrec"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
-  if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();if(s==="calc")renderCalc();if(s==="seqv")renderSeq();}
+function show(s){screen=s;document.body.classList.toggle("lock",LOCKED.includes(s));["home","play","placed","done","stats","rec","read","calc","seqv","cmdv","hrec"].forEach(x=>$(x).hidden=x!==s);window.scrollTo(0,0);
+  if(s==="home")renderHome();if(s==="stats")renderStats();if(s==="play")renderPlay();if(s==="read")renderRead();if(s==="calc")renderCalc();if(s==="seqv")renderSeq();if(s==="cmdv")renderCmd();}
 const fmt=v=>state.settings.comma?Number(v).toLocaleString("ko-KR"):String(Number(v));
 
 function ensureToday(){
   const d=dkey();
   if(!state.today||state.today.date!==d){
-    state.today={date:d,count:0,doneShown:false,listen:freshTk(),sent:freshTk(),seq:freshTk(),read:freshTk(),add:freshTk(),mul:freshTk()};
+    state.today={date:d,count:0,doneShown:false};ALLK.forEach(k=>state.today[k]=freshTk());
     const c=state.cur;if(c&&!SK(c.k).placement)state.cur=null;
   }
   ALLK.forEach(k=>{if(!state.today[k])state.today[k]=freshTk();});
@@ -1567,8 +1671,11 @@ function streak(){
   return n;
 }
 const readOK=()=>!!SPEECH;
-const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&(k!=="read"||readOK())&&(k!=="sent"||HV.sentOK())&&(k!=="seq"||seqOK()));return ks.length?ks:["listen"];};
-const WEIGHT={listen:3,sent:2,seq:2,read:1.5,add:1.5,mul:1.5};
+// 항목을 쓸 수 있는지: 음성 인식(보고 읽기·따라 말하기), 보호자 녹음(문장 듣기·숫자 듣기·지시 따르기), 그림 카드(순서 기억·지시 따르기)
+const AVAIL={read:readOK,rep:readOK,sent:()=>HV.sentOK(),dig:()=>HV.digOK(),seq:()=>seqOK(),cmd:()=>!!CARDS&&HV.cmdOK()};
+const avail=k=>!AVAIL[k]||AVAIL[k]();
+const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&avail(k));return ks.length?ks:["listen"];};
+const WEIGHT={listen:3,sent:2,rep:2,dig:1.5,seq:2,cmd:2,read:1.5,add:1.5,mul:1.5};
 // 하루 문제를 고른 항목들에 고르게 나눔 (앞 항목부터 하나씩 더)
 // 하루 문제를 비중대로 나눔 (듣고 쓰기 3 : 문장 듣기 2 : 나머지 1.5)
 /* 실력에 따라 문제 수 조절
@@ -1624,13 +1731,15 @@ function nextSkill(){
 }
 
 /* ---------- 홈 ---------- */
-function lvName(k,lv){return isMath(k)?MLV[k][lv].nm:k==="sent"?SLV[lv].nm:k==="seq"?SQLV[lv].nm:LV[lv].nm;}
+function lvName(k,lv){return isMath(k)?MLV[k][lv].nm:k==="sent"?SLV[lv].nm:k==="seq"?SQLV[lv].nm:k==="dig"?DLV[lv].nm:k==="cmd"?CLV[lv].nm:LV[lv].nm;}
 function lvEx(k,lv){
+  if(k==="dig")return DLV[lv].ex;
+  if(k==="cmd")return CLV[lv].ex;
   if(k==="seq")return SQLV[lv].ex;
   if(k==="sent")return SLV[lv].ex;
   if(isMath(k)){const [a,b]=MLV[k][lv].ex;return `${mathText(k,a,b)} = ${Number(ansOf(k,a,b)).toLocaleString("ko-KR")}`;}
   const e=LV[lv].ex,n=Number(e).toLocaleString("ko-KR")+"원";
-  return k==="read"?`${n} → "${toKo(e)} 원"`:`${toKo(e)} 원 → ${n}`;
+  return k==="read"?`${n} → "${toKo(e)} 원"`:k==="rep"?`"${toKo(e)} 원" → 따라 말하기`:`${toKo(e)} 원 → ${n}`;
 }
 function lvBlock(k){
   const s=SK(k),M=MAXOF(k),nm=`${TICON[k]} ${TNAME[k]}`;
@@ -1670,7 +1779,9 @@ function startPlay(){
   if(LN&&!state.settings.askedNotify){state.settings.askedNotify=true;save();askNotify().then(scheduleReminders);}
   const c=state.cur;
   if(c){c.ts=Date.now();if(isMath(c.k)){c.t0=Date.now();show("calc");return;}
-    if(c.k==="seq"){c.taps=[];show("seqv");setTimeout(speak,300);return;}show(c.k==="read"?"read":"play");if(c.k!=="read")speak();return;}
+    if(c.k==="seq"){c.taps=[];show("seqv");setTimeout(speak,300);return;}
+    if(c.k==="cmd"){c.taps=[];show("cmdv");setTimeout(speak,300);return;}
+    const rd=c.k==="read"||c.k==="rep";show(rd?"read":"play");if(c.k!=="read")setTimeout(speak,300);return;}
   newQ();
 }
 
@@ -1715,7 +1826,7 @@ function renderSettings(){
    if(state.settings.hv==null)state.settings.hv=true;
    if(HV.any())chips("hvRow",[[true,"내 목소리"],[false,"앱 목소리"]],"hv");
    const b=document.createElement("button");b.type="button";b.className="chip";
-   b.textContent=`🎙 내 목소리 녹음 (금액 ${c.a}/${c.an} · 문장 ${c.s}/${c.sn})`;b.onclick=()=>openHRec();r.appendChild(b);}
+   b.textContent=`🎙 내 목소리 녹음 (금액 ${c.a}/${c.an} · 문장 ${c.s}/${c.sn} · 숫자 ${c.d}/${c.dn} · 지시 ${c.c}/${c.cn})`;b.onclick=()=>openHRec();r.appendChild(b);}
   {const n=CLIPS.filter(c=>clipBuf.has(c)).length,opts=[];
    if(PACK)opts.push(["voice","앱이 읽기"]);
    else{if(canTTS)opts.push(["app","기계 음성"]);if(recReady())opts.push(["rec","녹음 목소리"]);}
@@ -1732,7 +1843,7 @@ function renderSettingsRest(){
   if(LN)renderRemind();else $("remindRow").hidden=true;
   chips("dailyRow",[[10,"10분"],[15,"15분"],[20,"20분"],[30,"30분"]],"minutes");
   {const row=$("partsRow");row.querySelectorAll(".chip").forEach(c=>c.remove());const P=state.settings.parts;
-   ALLK.filter(k=>(k!=="read"||readOK())&&(k!=="sent"||HV.sentOK())&&(k!=="seq"||seqOK())).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
+   ALLK.filter(avail).forEach(k=>{const b=document.createElement("button");b.type="button";b.className="chip";
      b.textContent=`${TICON[k]} ${TNAME[k]}`;b.setAttribute("aria-pressed",P[k]!==false);
      b.onclick=()=>{const on=P[k]!==false;if(on&&SKILLS().length<=1)return;P[k]=!on;save();renderHome();};row.appendChild(b);});}
   $("styleRow").hidden=$("engineRow").hidden=!!PACK;
@@ -1743,7 +1854,7 @@ function renderSettingsRest(){
   chips("commaRow",[[true,"자동으로 찍기"],[false,"안 찍기"]],"comma");
   chips("sfxRow",[[true,"켜기"],[false,"끄기"]],"sfx");
   document.querySelectorAll(".stepper[data-k]").forEach(el=>{const k=el.dataset.k,s=SK(k);
-    el.hidden=(k==="read"&&!readOK())||(k==="sent"&&!HV.sentOK())||(k==="seq"&&!seqOK());el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
+    el.hidden=!avail(k);el.querySelector("b").textContent=s.level==null?"테스트 전":"레벨 "+s.level;
     el.querySelectorAll("button").forEach(b=>b.onclick=()=>{if(s.level==null)return;const v=s.level+ +b.dataset.d;if(v<1||v>MAXOF(k))return;
       s.level=v;s.win=[];s.since=0;save();renderHome();});});
   $("wipe").textContent=wipeArmed?"정말 지울까요? 한 번 더 누르세요":"기록 모두 지우기";
@@ -1773,6 +1884,20 @@ function newQ(skipIntro){
     state.cur={k,items:q.items,board:q.board,t:0,lv,tries:0,rv:false,rp:0,taps:[],ts:Date.now()};
     save();show("seqv");setTimeout(speak,400);return;
   }
+  if(k==="dig"){
+    // 숫자 듣기: 같은 숫자가 바로 이어지지 않게
+    const L=DLV[lv];let str;
+    do{str="";let pv=-1;for(let i=0;i<L.n;i++){let d;do d=Math.floor(Math.random()*10);while(d===pv);str+=d;pv=d;}}while(state.cur&&state.cur.t===str);
+    const {keys,gaps}=HV.digKeys(str,L.g);
+    state.cur={k,t:str,groups:L.g,keys,gaps,lv,tries:0,rv:false,rp:0,ts:Date.now()};
+    input="";save();$("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
+    show("play");setTimeout(speak,300);return;
+  }
+  if(k==="cmd"){
+    const q=genCmd(lv);if(!q){state.lastSkill=null;return newQ(true);}
+    state.cur=Object.assign({k,t:0,lv,tries:0,rv:false,rp:0,taps:[],ts:Date.now()},q);
+    save();show("cmdv");setTimeout(speak,400);return;
+  }
   if(k==="sent"){
     // 문장 듣기: 보호자가 녹음한 조각으로 문장을 만듦 (기계 음성 문장은 쓰지 않음)
     const recent=s.recent||(s.recent=[]);
@@ -1795,19 +1920,19 @@ function newQ(skipIntro){
   else if(!P&&lv>=8&&lv!==11&&lv!==12&&Math.random()<.25)gl=lv>=9?12:11;
   state.cur={k,t:pickNum(k,gl,state.cur?.t,!P),lv:review?gl:lv,review,tries:0,rv:false,rp:0,ts:Date.now()};
   input="";save();
-  if(k==="read"){$("rHeard").textContent="";$("rHeard").className="rheard";$("rbox").className="rbox";show("read");return;}
+  if(k==="read"||k==="rep"){$("rHeard").textContent="";$("rHeard").className="rheard";$("rbox").className="rbox";show("read");if(k==="rep")setTimeout(speak,350);return;}
   $("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
   show("play");setTimeout(speak,250);
 }
 // 듣고 쓰기 ↔ 보고 읽기가 바뀔 때 안내
-const startLv=k=>k==="mul"||k==="sent"?1:k==="add"||k==="seq"?2:4;
+const startLv=k=>k==="mul"||k==="sent"||k==="cmd"||k==="dig"?1:k==="add"||k==="seq"?2:k==="rep"?3:4;
 function showIntro(k){
   const s=SK(k),test=s.level==null||(s.placement&&!s.placement.hist.length);
   const R=k==="read";
   $("placed").innerHTML=`<div class="card center intro">
     <div class="iic">${TICON[k]}</div>
     <h2>${state.today.count?"이번엔 ":""}${TNAME[k]}${state.today.count?(isMath(k)?"이에요":"예요"):"부터 해요"}</h2>
-    <div>${k==="seq"?"단어 몇 개를 차례로 들려줘요.<br>다 들은 다음, 들은 순서대로 그림을 누르세요.":k==="sent"?"짧은 문장을 듣고, 물어보는 물건의 가격을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
+    <div>${k==="rep"?"금액을 들려줘요. 숫자는 보이지 않아요.<br>🎤 버튼을 누르고 들은 그대로 따라 말하세요.":k==="dig"?"숫자 몇 개를 차례로 들려줘요.<br>들은 순서대로 숫자를 쓰세요.":k==="cmd"?"지시를 듣고 그대로 그림을 누르세요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="seq"?"단어 몇 개를 차례로 들려줘요.<br>다 들은 다음, 들은 순서대로 그림을 누르세요.":k==="sent"?"짧은 문장을 듣고, 물어보는 물건의 가격을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
     ${test?`<div class="sub">먼저 실력 확인 ${TN(k)}문제로 시작 레벨을 정해요.</div>`:""}
     <button class="btn" type="button" id="introGo" style="width:100%">시작</button>
     <button class="link" type="button" id="introHome">처음 화면으로</button></div>`;
@@ -1839,7 +1964,8 @@ function renderPlay(){
   const g=guardian();
   $("speak").querySelector("span").textContent=c&&c.rp>=1?"천천히":"듣기";
   $("speak").hidden=g;$("gbox").hidden=!g;
-  if(c){if(c.k==="sent")$("gtext").innerHTML=sentHTML(c,false);else $("gtext").textContent=toKo(c.t)+" 원";}
+  if(c){if(c.k==="sent")$("gtext").innerHTML=sentHTML(c,false);else if(c.k==="dig")$("gtext").textContent=digSay(c);else $("gtext").textContent=toKo(c.t)+" 원";}
+  const D=!!(c&&c.k==="dig");$("answer").querySelector(".won").hidden=D;
   $("gbox").querySelector(".ghint").textContent=c&&c.k==="sent"?"보호자가 문장을 읽어 주세요":"보호자가 읽어 주세요";
   {const q=$("askq"),on=!!(c&&c.k==="sent"&&c.hv&&c.askShown);q.hidden=!on;
    if(on)q.innerHTML=`<b>${c.items[c.ask][0]}</b> 가격을 적어 주세요`;}
@@ -1850,12 +1976,14 @@ function renderPlay(){
   if(ph){const ds=String(Number(input)),L=ds.length;let i=0;
     nm.innerHTML=fmt(input).split("").map(ch=>{if(!/[0-9]/.test(ch))return`<span class="cm">${ch}</span>`;const p=PLACE[L-1-(i++)]||"";
       return`<span class="dg">${ch}<i${p.length>1?' class="v"':''}>${p.length>1?p.split("").join("<br>"):p}</i></span>`;}).join("");}
+  else if(D)nm.textContent=input?digGroup(input,c.groups):"?";
   else nm.textContent=input?fmt(input):"0";
   $("go").disabled=!input;
   $("showAns").hidden=!(c&&c.tries>0&&!c.rv);
   $("skip").hidden=!(c&&c.rv);
   const rv=$("rev");rv.hidden=!(c&&c.rv);
-  if(c&&c.rv){
+  if(c&&c.rv&&D){rv.innerHTML=`<div class="revtop"><span class="sub">정답</span><b class="big">${digGroup(c.t,c.groups)}</b><span class="ko">${digSay(c)}</span></div>`;}
+  else if(c&&c.rv){
     const s=String(c.t);
     rv.innerHTML=`${c.k==="sent"?`<div class="sline">${sentHTML(c,true)}</div>`:""}<div class="revtop"><span class="sub">정답</span><b class="big">${fmt(c.t)}원</b><span class="ko">${toKo(c.t)} 원</span></div>
       <div class="cols">${s.split("").map((d,i)=>`<div class="col${d==="0"?" z":""}"><span class="d">${d}</span><span class="p">${PLACE[s.length-1-i]}</span></div>`).join("")}</div>`;
@@ -1871,12 +1999,22 @@ let busy=false;
 function press(k){
   if(busy||!state.cur)return;
   if(k==="⌫")input=input.slice(0,-1);
-  else{if(!input&&k[0]==="0")return;if(input.length+k.length>7)return;input+=k;}
+  else{if(!input&&k[0]==="0"&&state.cur.k!=="dig")return;if(input.length+k.length>7)return;input+=k;}
   $("answer").className="answer";if(!state.cur.rv)$("msg").textContent="";
   renderPlay();
 }
 /* 틀렸을 때 어떻게 틀렸는지만 알려 줌 (정답은 안 알려 줌). 두 번째로 틀리면 조금 더 자세히 */
+const DGN="공일이삼사오육칠팔구";
+// 숫자 줄을 묶음대로 띄어서: "061 285"
+function digGroup(str,groups){const o=[];let i=0;for(const g of groups){if(i>=str.length)break;o.push(str.slice(i,i+g));i+=g;}if(i<str.length)o.push(str.slice(i));return o.join(" ");}
+function digSay(c){let i=0;return c.groups.map(g=>{const p=c.t.slice(i,i+g);i+=g;return c.groups.length>1?[...p].map(d=>DGN[+d]).join(""):[...p].map(d=>DGN[+d]).join(", ");}).join(", ");}
 function errCue(c,ans){
+  if(c.k==="dig"){const t=c.t,a=ans;
+    if(a.length<t.length)return `숫자가 ${t.length-a.length}개 모자라요.`;
+    if(a.length>t.length)return `숫자가 ${a.length-t.length}개 많아요.`;
+    if([...a].sort().join()===[...t].sort().join())return "숫자는 맞는데 순서가 달라요.";
+    const diff=[...t].map((d,i)=>d!==a[i]?i:-1).filter(i=>i>=0);
+    return diff.length===1?(c.tries>=1?`${diff[0]+1}번째 숫자가 달라요.`:"숫자 하나가 달라요."):null;}
   if(c.k==="sent"&&c.items&&c.items.length>1&&c.items.some((x,i)=>i!==c.ask&&x[1]===+ans))return "다른 물건 가격이에요.";
   const t=String(c.t),a=String(+ans),cl=classify(t,a);if(!cl)return null;
   switch(cl.type){
@@ -1893,9 +2031,9 @@ function errCue(c,ans){
 function check(){
   if(busy||!input||!state.cur)return;
   const c=state.cur;
-  if(+input===c.t)return onCorrect();
+  if(c.k==="dig"?input===c.t:+input===c.t)return onCorrect();
   const cue=c.rv||guardian()?null:errCue(c,input);
-  if(c.tries===0&&!c.rv){if(c.k==="sent")learnSent(c,input);else learn("listen",c.t,input);}
+  if(c.tries===0&&!c.rv){if(c.k==="sent")learnSent(c,input);else if(c.k==="dig")learnDig(c,input);else learn("listen",c.t,input);}
   c.tries++;save();busy=true;
   const a=$("answer");a.className="answer no";a.classList.remove("shake");void a.offsetWidth;a.classList.add("shake");
   $("msg").textContent=c.rv?"정답을 보고 다시 써 보세요":guardian()?"보호자가 한 번 더 읽어 주세요":(cue?cue+" ":"")+"다시 들어 보세요 🔊";
@@ -1921,17 +2059,20 @@ function scoreOf(c){
 function readLim(n){const syl=toKo(n).length+1,t1=(3+.45*syl)*1000;return{t1,t2:t1*2.5};}
 function onCorrect(){
   const c=state.cur,k=c.k,first=c.tries===0&&!c.rv;busy=true;
-  if(k==="listen")$("answer").className="answer ok";
+  if(k==="listen"||k==="dig")$("answer").className="answer ok";
   if(isMath(k))$("cAns").className="answer ok";
   if(first&&k==="sent")learnSent(c,null);
   else if(first&&k==="seq")learnSeq(c,c.items);
-  else if(first&&!isMath(k)&&k!=="seq")learn(k,c.t,null);
+  else if(first&&k==="dig")learnDig(c,null);
+  else if(first&&k==="cmd")learnCmd(c,null);
+  else if(first&&!isMath(k)&&k!=="seq"&&k!=="cmd")learn(k,c.t,null);
   const ch=record(scoreOf(c));
   chime();
   if(k==="seq"){seqTok++;seqBusy=false;}
-  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":isMath(k)?"잘했어요!":k==="seq"?"잘 따라 했어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
-    k==="read"&&c.said?`들린 말: “${c.said}”`:"");
-  setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:(k==="read"?1900:1400));
+  if(k==="cmd"){cmdTok++;cmdBusy=false;}
+  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":k==="rep"?"잘 따라 말했어요!":isMath(k)?"잘했어요!":k==="seq"||k==="cmd"?"잘 따라 했어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
+    (k==="read"||k==="rep")&&c.said?`들린 말: “${c.said}”`:"");
+  setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:(k==="read"||k==="rep"?1900:1400));
 }
 /* 레벨: 최근 10문제 점수 평균 0.85 이상 → 업, 0.5 이하 → 다운
    레벨이 바뀐 뒤 6문제는 판단하지 않고, 다운은 하루 한 번까지 */
@@ -2099,6 +2240,88 @@ function bindSeq(){
   window.addEventListener("resize",()=>{if(screen==="seqv")fitBoard();});
 }
 
+/* ---------- 지시 따르기 ----------
+   보호자 녹음으로 만든 지시를 듣고 그림판(6장, '빼고 다'는 4장)에서 누르기 */
+let cmdTok=0,cmdBusy=false;
+function genCmd(lv){
+  const q=HV.cmd(lv);if(!q||!CARDS)return null;
+  const byW={};CARDS.forEach(c=>byW[c.w]=c);
+  const tgt=[q.a,q.b].filter(Boolean).map(w=>byW[w]);if(tgt.some(x=>!x))return null;
+  // 보기 그림: 지시에 나온 그림과 소리 비슷한 짝은 빼서, 낱말을 잘못 들어 틀리는 일이 없게 (지시를 알아듣는지만 봄)
+  const avoid=new Set(tgt.flatMap(c=>[c.w,c.pair].filter(Boolean)));
+  const size=q.lv===6?4:6;
+  const others=shuf(CARDS.filter(c=>!avoid.has(c.w))).slice(0,size-tgt.length);
+  const board=shuf([...tgt,...others].map(c=>c.id)),aid=byW[q.a].id;
+  const ans=q.lv===6?board.filter(x=>x!==aid):q.ans.map(w=>byW[w].id);
+  return{clv:q.lv,a:q.a,b:q.b,aid,keys:q.keys,board,ans,ordered:q.ordered,text:q.keys.join(" ")};
+}
+function renderCmd(){
+  const c=state.cur,[info,w]=progInfo();
+  $("mInfo").innerHTML=info;$("mBar").style.width=w+"%";
+  if(!c||c.k!=="cmd")return;
+  const g=guardian(),need=c.ans.length,taps=c.taps||[];
+  $("mSpeak").hidden=g;$("mG").hidden=!g;if(g)$("mGtext").textContent=c.text;
+  $("mSpeak").querySelector("span").textContent=cmdBusy?"듣는 중…":c.rp>=1?"천천히 다시":"다시 듣기";
+  const m=$("mMsg");
+  if(!m.dataset.keep)m.textContent=cmdBusy?"잘 들어 보세요":c.rv?(c.ordered?"번호 순서대로 눌러 보세요":"표시된 그림을 눌러 보세요"):`그림 ${need}개를 누르세요`;
+  $("mText").hidden=!c.rv;$("mText").textContent="“"+c.text+"”";
+  const B=$("mBoard");B.style.gridTemplateColumns=`repeat(${c.board.length===4?2:3},1fr)`;B.classList.toggle("wait",cmdBusy);
+  B.innerHTML=c.board.map(id=>{const ti=taps.indexOf(id),ri=c.rv?c.ans.indexOf(id):-1,mk=c.mark&&c.mark[id];
+    return `<button type="button" class="ptile${ti>=0?" on":""}${mk?" "+mk:""}" data-id="${id}" aria-label="${CARD[id]?CARD[id].w:""}">
+      <img src="cards/${id}.webp" alt="">${ti>=0?`<b class="bd">${c.ordered?ti+1:"●"}</b>`:ri>=0?`<b class="bd hint">${c.ordered?ri+1:"✔"}</b>`:""}</button>`;}).join("");
+  B.querySelectorAll(".ptile").forEach(t=>t.onclick=()=>tapCmd(t.dataset.id));
+  $("mUndo").disabled=!taps.length||cmdBusy;
+  $("mShow").hidden=!(c.tries>0&&!c.rv);
+  $("mSkip").hidden=!c.rv;
+}
+function tapCmd(id){
+  const c=state.cur;if(!c||busy||cmdBusy)return;
+  c.taps=c.taps||[];if(c.taps.includes(id)||c.taps.length>=c.ans.length)return;
+  c.mark=null;delete $("mMsg").dataset.keep;
+  c.taps.push(id);renderCmd();
+  if(c.taps.length===c.ans.length)setTimeout(checkCmd,250);
+}
+const sameSet=(a,b)=>a.slice().sort().join()===b.slice().sort().join();
+function checkCmd(){
+  const c=state.cur;if(!c||busy)return;
+  const ok=c.ordered?c.taps.every((id,i)=>id===c.ans[i]):sameSet(c.taps,c.ans);
+  if(ok){c.mark=null;return onCorrect();}
+  if(c.tries===0&&!c.rv)learnCmd(c,c.taps);
+  c.tries++;save();busy=true;
+  const neg=(c.clv===4||c.clv===6)&&c.taps.includes(c.aid),order=c.ordered&&sameSet(c.taps,c.ans);
+  c.mark={};c.taps.forEach((id,i)=>c.mark[id]=(c.ordered?id===c.ans[i]:c.ans.includes(id))?"good":"bad");
+  const m=$("mMsg");m.dataset.keep="1";
+  m.textContent=c.rv?"표시된 그림을 다시 눌러 보세요":neg?(c.clv===4?"'말고' 앞에 들은 그림은 누르지 않아요. 다시 들어 볼까요?":"'빼고' 앞에 들은 그림은 빼고 눌러요. 다시 들어 볼까요?")
+    :order?"그림은 맞았어요. 누르는 순서를 다시 들어 볼까요?":"다시 들어 볼까요? 🔊";
+  renderCmd();
+  setTimeout(()=>{busy=false;c.taps=[];c.mark=null;delete m.dataset.keep;renderCmd();if(!c.rv)speak();},1700);
+}
+const upW=(W,key,miss)=>{const w=W[key]||(W[key]={n:0,m:0});w.n=decay(w.n,1);w.m=decay(w.m,miss?1:0);};
+// 실수 기록: 어느 단계 지시에서 틀리는지, '말고·빼고' 앞 그림을 누르는지, 순서만 틀리는지
+function learnCmd(c,taps){
+  const W=SK("cmd").weak||(SK("cmd").weak={}),miss=!!taps;
+  if(c.clv>=2)upW(W,"cmd:"+c.clv,miss);
+  if(c.clv===4||c.clv===6)upW(W,"err:cneg",miss&&taps.includes(c.aid));
+  if(c.ordered)upW(W,"err:corder",miss&&sameSet(taps,c.ans));
+}
+// 숫자 듣기 실수 기록: 몇 번째 숫자를 놓치는지, 순서만 바뀌는지, 개수를 놓치는지
+function learnDig(c,ans){
+  const W=SK("dig").weak||(SK("dig").weak={}),t=c.t,n=t.length;
+  if(ans==null){["dpos:first","dpos:middle","dpos:last"].forEach(k=>upW(W,k,false));upW(W,"err:dorder",false);upW(W,"err:dlen",false);return;}
+  const pm={};for(let i=0;i<n;i++){const pos=i===0?"dpos:first":i===n-1?"dpos:last":"dpos:middle";pm[pos]=pm[pos]||ans[i]!==t[i];}
+  Object.entries(pm).forEach(([k,v])=>upW(W,k,v));
+  upW(W,"err:dorder",ans.length===n&&ans!==t&&sameSet([...ans],[...t]));
+  upW(W,"err:dlen",ans.length!==n);
+}
+function bindCmd(){
+  $("mBack").onclick=()=>{cmdTok++;cmdBusy=false;HV.stop();show("home");};
+  $("mSpeak").onclick=()=>{const c=state.cur;if(!c||cmdBusy||busy)return;c.rp=(c.rp||0)+1;c.taps=[];c.mark=null;save();speak();};
+  $("mUndo").onclick=()=>{const c=state.cur;if(!c||!c.taps||busy)return;c.taps.pop();renderCmd();};
+  $("mShow").onclick=()=>{const c=state.cur;if(!c)return;c.rv=true;c.taps=[];c.mark=null;save();renderCmd();};
+  $("mSkip").onclick=()=>{if(busy||!state.cur)return;record(0);advance("cmd");};
+  $("mPeek").onclick=()=>{const g=$("mGtext");g.hidden=false;clearTimeout(g._t);g._t=setTimeout(()=>g.hidden=true,5000);};
+}
+
 /* ---------- 계산 화면 ---------- */
 function fitQ(){const el=$("cq"),len=el.textContent.length||1,w=Math.min(window.innerWidth,520)-140;el.style.fontSize=Math.round(Math.max(30,Math.min(72,w/(len*.58))))+"px";}
 function renderCalc(){
@@ -2201,17 +2424,22 @@ function fitNum(){
   el.style.fontSize=Math.round(Math.max(28,Math.min(84,w/(len*.6))))+"px";
 }
 function renderRead(){
-  const c=state.cur,[info,w]=progInfo();
+  const c=state.cur,[info,w]=progInfo(),R=!!(c&&c.k==="rep");
   $("rInfo").innerHTML=info;$("rBar").style.width=w+"%";
-  $("rNum").textContent=c?Number(c.t).toLocaleString("ko-KR")+"원":"";fitNum();
+  // 따라 말하기: 금액은 숨기고 들려줌. 두 번 틀려 '숫자 보기'를 누르면 보여 줌
+  $("rSub").textContent=R?(c.rv?"숫자를 보면서 따라 말해 보세요":"들은 금액을 그대로 따라 말해 보세요"):"소리 내어 읽어 보세요";
+  $("rListen").hidden=!R;
+  $("rListen").querySelector("span").textContent=c&&c.rp>=1?"천천히 다시":"다시 듣기";
+  $("rNum").textContent=c?(R&&!c.rv?"🔊 ? 원":Number(c.t).toLocaleString("ko-KR")+"원"):"";fitNum();
   $("rKo").hidden=!(c&&c.rv);if(c)$("rKo").textContent=toKo(c.t)+" 원";
+  $("rHint").textContent=R?"👀 숫자 보기":"🔊 정답 듣기";
   $("rOk").hidden=!(c&&c.tries>0&&!listening);
   $("rHint").hidden=!(c&&c.tries>=2&&!c.rv&&!listening);
   $("rSkip").hidden=!(c&&c.rv&&!listening);
   $("mic").classList.toggle("on",listening);
-  $("micTxt").textContent=listening?"듣고 있어요…":(c&&c.tries>0?"다시 읽기":"누르고 읽기");
+  $("micTxt").textContent=listening?"듣고 있어요…":R?(c.tries>0?"다시 따라 말하기":"누르고 따라 말하기"):(c&&c.tries>0?"다시 읽기":"누르고 읽기");
 }
-function flushMiss(c){if(c&&c.miss!=null){learn("read",c.t,c.miss);c.miss=null;}}
+function flushMiss(c){if(c&&c.miss!=null){learn(c.k,c.t,c.miss);c.miss=null;}}
 async function doListen(){
   if(busy||!state.cur||!SPEECH)return;
   if(listening){try{await SPEECH.stop();}catch(e){}return;}
@@ -2251,7 +2479,8 @@ function handleHeard(ms,err){
   {const L=state.readLog||(state.readLog=[]);L.push({t:c.t,said,at:Date.now()});if(L.length>20)L.splice(0,L.length-20);}
   c.tries++;save();
   h.className="rheard no";
-  h.innerHTML=`이렇게 들렸어요: <b>${said}</b>${heard!=null?` (${Number(heard).toLocaleString("ko-KR")}원)`:""}<br>${c.rv?"정답을 듣고 따라 읽어 보세요":"다시 한 번 읽어 볼까요?"}`;
+  h.innerHTML=`이렇게 들렸어요: <b>${said}</b>${heard!=null?` (${Number(heard).toLocaleString("ko-KR")}원)`:""}<br>${c.k==="rep"?(c.rv?"숫자를 보면서 따라 말해 보세요":"다시 듣고 따라 말해 볼까요?"):c.rv?"정답을 듣고 따라 읽어 보세요":"다시 한 번 읽어 볼까요?"}`;
+  if(c.k==="rep"&&!c.rv)setTimeout(()=>{if(state.cur===c&&!listening)speak();},700);
   const b=$("rbox");b.className="rbox no";b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");
   renderRead();
 }
@@ -2262,8 +2491,9 @@ function bindRead(){
     if(c.tries<=1&&!c.rv){c.tries=0;c.miss=null;}else flushMiss(c);
     $("rHeard").className="rheard";$("rHeard").textContent="";$("rbox").className="rbox ok";onCorrect();};
   $("rHint").onclick=()=>{const c=state.cur;if(!c)return;flushMiss(c);c.rv=true;save();
-    $("rHeard").className="rheard";$("rHeard").textContent=guardian()?"보호자가 정답을 읽어 주세요. 그다음 따라 읽어 보세요.":"듣고 따라 읽어 보세요";renderRead();speak();};
-  $("rSkip").onclick=()=>{const c=state.cur;if(!c||busy||listening)return;flushMiss(c);record(0);advance("read");};
+    $("rHeard").className="rheard";$("rHeard").textContent=c.k==="rep"?"숫자를 보면서 들은 대로 따라 말해 보세요":guardian()?"보호자가 정답을 읽어 주세요. 그다음 따라 읽어 보세요.":"듣고 따라 읽어 보세요";renderRead();speak();};
+  $("rListen").onclick=()=>{const c=state.cur;if(!c||listening)return;c.rp=(c.rp||0)+1;save();renderRead();speak();};
+  $("rSkip").onclick=()=>{const c=state.cur;if(!c||busy||listening)return;flushMiss(c);const k=c.k;record(0);advance(k);};
   if(SPEECH){
     SPEECH.addListener("state",d=>{if(listening&&d.state==="thinking")speechEnd=Date.now();});
     SPEECH.addListener("partial",d=>{if(listening&&d.text){$("rHeard").className="rheard";$("rHeard").textContent="… "+d.text;}});
@@ -2362,8 +2592,8 @@ function renderScore(){
 }
 function renderStats(){
   renderLevels();
-  const tabs=$("stTabs");if((statK==="read"&&!readOK())||(statK==="sent"&&!PACK)||(statK==="seq"&&!seqOK()))statK="listen";
-  tabs.querySelectorAll("button").forEach(b=>{b.hidden=(b.dataset.t==="read"&&!readOK())||(b.dataset.t==="sent"&&!PACK)||(b.dataset.t==="seq"&&!seqOK());b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
+  const tabs=$("stTabs");if(!avail(statK))statK="listen";
+  tabs.querySelectorAll("button").forEach(b=>{b.hidden=!avail(b.dataset.t);b.setAttribute("aria-pressed",statK===b.dataset.t);b.onclick=()=>{statK=b.dataset.t;renderStats();};});
   const k=statK,s=SK(k);
   const keys=Object.keys(state.days).filter(d=>state.days[d][k]&&state.days[d][k].n).sort(),ds=keys.map(d=>state.days[d][k]);
   const tot=ds.reduce((a,d)=>a+d.n,0),ok=ds.reduce((a,d)=>a+d.ok,0);
@@ -2433,6 +2663,7 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&screen==="home")renderHome();});
 buildPad();
 bindSeq();
+bindCmd();
 bindRec();
 bindHRec();
 bindRead();
