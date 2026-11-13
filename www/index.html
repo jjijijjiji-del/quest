@@ -365,6 +365,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .bwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
 .board{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;max-width:100%}
 .board.wait .ptile{opacity:.55;pointer-events:none}
+#pad.wait .k{opacity:.45;pointer-events:none}
 .ptile{position:relative;border:2px solid var(--line);border-radius:12px;background:#fff;padding:4px;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;transition:transform .08s}
 .ptile:active{transform:scale(.96)}
 .ptile img{width:100%;height:100%;object-fit:contain}
@@ -601,6 +602,7 @@ body.lock .app>section:not([hidden]){flex:1;min-height:0;height:auto!important}
   <div class="bwrap"><div class="board cboard" id="mBoard"></div></div>
   <div class="mrow rrow">
     <button class="mini" type="button" id="mUndo">⌫ 하나 지우기</button>
+    <button class="mini primary" type="button" id="mDone">다 눌렀어요 ✔</button>
     <button class="mini" type="button" id="mShow" hidden>정답 보기</button>
     <button class="mini primary" type="button" id="mSkip" hidden>다음 문제 →</button>
   </div>
@@ -1114,7 +1116,8 @@ function speak(){
   if(guardian()||!state.cur)return;
   if(state.cur.k==="seq"){const c=state.cur;if(voiceMode())playSeq(c,c.rp>=2||c.tries>=2);return;}
   {const c=state.cur,slow=c.rp>=2||c.tries>=2;
-   if(c.k==="dig"){HV.play(c.keys,slow,null,c.gaps);return;}
+   if(c.k==="dig"){const my=++digTok;digBusy=true;if(screen==="play")renderPlay();
+     HV.play(c.keys,slow,null,c.gaps).then(d=>setTimeout(()=>{if(my===digTok){digBusy=false;if(screen==="play")renderPlay();}},(d||1)*1000+150));return;}
    if(c.k==="cmd"){cmdBusy=true;renderCmd();const my=++cmdTok;HV.play(c.keys,slow).then(d=>setTimeout(()=>{if(my===cmdTok){cmdBusy=false;if(screen==="cmdv")renderCmd();}},(d||1)*1000));return;}
    if(c.k==="sent"&&c.hv){HV.play(c.keys,slow).then(d=>{if(d)setTimeout(()=>{if(state.cur===c&&!c.askShown){c.askShown=true;save();if(screen==="play")renderPlay();}},d*1000+300);});return;}
    if(c.k==="listen"||c.k==="read"||c.k==="rep"){const ks=HV.keysFor(c.t);if(ks){HV.play(ks,slow);return;}
@@ -1894,7 +1897,7 @@ function newQ(skipIntro){
     show("play");setTimeout(speak,300);return;
   }
   if(k==="cmd"){
-    const q=genCmd(lv);if(!q){state.lastSkill=null;return newQ(true);}
+    const q=genCmd(lv,!P);if(!q){state.lastSkill=null;return newQ(true);}
     state.cur=Object.assign({k,t:0,lv,tries:0,rv:false,rp:0,taps:[],ts:Date.now()},q);
     save();show("cmdv");setTimeout(speak,400);return;
   }
@@ -1978,7 +1981,10 @@ function renderPlay(){
       return`<span class="dg">${ch}<i${p.length>1?' class="v"':''}>${p.length>1?p.split("").join("<br>"):p}</i></span>`;}).join("");}
   else if(D)nm.textContent=input?digGroup(input,c.groups):"?";
   else nm.textContent=input?fmt(input):"0";
-  $("go").disabled=!input;
+  $("go").disabled=!input||(D&&digBusy);
+  $("pad").classList.toggle("wait",D&&digBusy);
+  if(D&&digBusy)$("msg").textContent="끝까지 듣고 나서 쓰세요";
+  else if(D&&$("msg").textContent==="끝까지 듣고 나서 쓰세요")$("msg").textContent="";
   $("showAns").hidden=!(c&&c.tries>0&&!c.rv);
   $("skip").hidden=!(c&&c.rv);
   const rv=$("rev");rv.hidden=!(c&&c.rv);
@@ -1995,9 +2001,10 @@ function buildPad(){
     b.className="k"+(k==="⌫"?" sm":"");b.textContent=k==="⌫"?"⌫ 지우기":k;b.onclick=()=>press(k);pad.appendChild(b);});
   const go=document.createElement("button");go.type="button";go.className="btn go";go.id="go";go.textContent="확인";go.onclick=check;pad.appendChild(go);
 }
-let busy=false;
+let busy=false,digBusy=false,digTok=0;
 function press(k){
   if(busy||!state.cur)return;
+  if(state.cur.k==="dig"&&digBusy)return;
   if(k==="⌫")input=input.slice(0,-1);
   else{if(!input&&k[0]==="0"&&state.cur.k!=="dig")return;if(input.length+k.length>7)return;input+=k;}
   $("answer").className="answer";if(!state.cur.rv)$("msg").textContent="";
@@ -2243,13 +2250,15 @@ function bindSeq(){
 /* ---------- 지시 따르기 ----------
    보호자 녹음으로 만든 지시를 듣고 그림판(6장, '빼고 다'는 4장)에서 누르기 */
 let cmdTok=0,cmdBusy=false;
-function genCmd(lv){
-  const q=HV.cmd(lv);if(!q||!CARDS)return null;
+function genCmd(lv,mix){
+  // 지금 단계 50%, 나머지는 지난 단계들에서 고르게 — 같은 꼴만 이어지면 요령으로 풀게 됨
+  const t=mix&&lv>1&&Math.random()>=.5?1+Math.floor(Math.random()*(lv-1)):lv;
+  const q=HV.cmd(t);if(!q||!CARDS)return null;
   const byW={};CARDS.forEach(c=>byW[c.w]=c);
   const tgt=[q.a,q.b].filter(Boolean).map(w=>byW[w]);if(tgt.some(x=>!x))return null;
   // 보기 그림: 지시에 나온 그림과 소리 비슷한 짝은 빼서, 낱말을 잘못 들어 틀리는 일이 없게 (지시를 알아듣는지만 봄)
   const avoid=new Set(tgt.flatMap(c=>[c.w,c.pair].filter(Boolean)));
-  const size=q.lv===6?4:6;
+  const size=6;  // '빼고 다'도 6장 (그림 수로 지시 꼴을 알아채지 않게)
   const others=shuf(CARDS.filter(c=>!avoid.has(c.w))).slice(0,size-tgt.length);
   const board=shuf([...tgt,...others].map(c=>c.id)),aid=byW[q.a].id;
   const ans=q.lv===6?board.filter(x=>x!==aid):q.ans.map(w=>byW[w].id);
@@ -2263,7 +2272,7 @@ function renderCmd(){
   $("mSpeak").hidden=g;$("mG").hidden=!g;if(g)$("mGtext").textContent=c.text;
   $("mSpeak").querySelector("span").textContent=cmdBusy?"듣는 중…":c.rp>=1?"천천히 다시":"다시 듣기";
   const m=$("mMsg");
-  if(!m.dataset.keep)m.textContent=cmdBusy?"잘 들어 보세요":c.rv?(c.ordered?"번호 순서대로 눌러 보세요":"표시된 그림을 눌러 보세요"):`그림 ${need}개를 누르세요`;
+  if(!m.dataset.keep)m.textContent=cmdBusy?"잘 들어 보세요":c.rv?(c.ordered?"번호 순서대로 누르고 '다 눌렀어요'":"표시된 그림을 누르고 '다 눌렀어요'"):"지시대로 누르고 '다 눌렀어요'를 누르세요";
   $("mText").hidden=!c.rv;$("mText").textContent="“"+c.text+"”";
   const B=$("mBoard");B.style.gridTemplateColumns=`repeat(${c.board.length===4?2:3},1fr)`;B.classList.toggle("wait",cmdBusy);
   B.innerHTML=c.board.map(id=>{const ti=taps.indexOf(id),ri=c.rv?c.ans.indexOf(id):-1,mk=c.mark&&c.mark[id];
@@ -2271,28 +2280,30 @@ function renderCmd(){
       <img src="cards/${id}.webp" alt="">${ti>=0?`<b class="bd">${c.ordered?ti+1:"●"}</b>`:ri>=0?`<b class="bd hint">${c.ordered?ri+1:"✔"}</b>`:""}</button>`;}).join("");
   B.querySelectorAll(".ptile").forEach(t=>t.onclick=()=>tapCmd(t.dataset.id));
   $("mUndo").disabled=!taps.length||cmdBusy;
+  $("mDone").disabled=!taps.length||cmdBusy;
   $("mShow").hidden=!(c.tries>0&&!c.rv);
   $("mSkip").hidden=!c.rv;
 }
+// 누르면 표시, 다시 누르면 취소. 다 누르고 '다 눌렀어요'로 확인 (몇 개 누를지는 알려 주지 않음)
 function tapCmd(id){
   const c=state.cur;if(!c||busy||cmdBusy)return;
-  c.taps=c.taps||[];if(c.taps.includes(id)||c.taps.length>=c.ans.length)return;
-  c.mark=null;delete $("mMsg").dataset.keep;
-  c.taps.push(id);renderCmd();
-  if(c.taps.length===c.ans.length)setTimeout(checkCmd,250);
+  c.taps=c.taps||[];c.mark=null;delete $("mMsg").dataset.keep;
+  const i=c.taps.indexOf(id);if(i>=0)c.taps.splice(i,1);else c.taps.push(id);
+  renderCmd();
 }
 const sameSet=(a,b)=>a.slice().sort().join()===b.slice().sort().join();
 function checkCmd(){
   const c=state.cur;if(!c||busy)return;
-  const ok=c.ordered?c.taps.every((id,i)=>id===c.ans[i]):sameSet(c.taps,c.ans);
+  const ok=c.ordered?c.taps.length===c.ans.length&&c.taps.every((id,i)=>id===c.ans[i]):sameSet(c.taps,c.ans);
   if(ok){c.mark=null;return onCorrect();}
   if(c.tries===0&&!c.rv)learnCmd(c,c.taps);
   c.tries++;save();busy=true;
   const neg=(c.clv===4||c.clv===6)&&c.taps.includes(c.aid),order=c.ordered&&sameSet(c.taps,c.ans);
   c.mark={};c.taps.forEach((id,i)=>c.mark[id]=(c.ordered?id===c.ans[i]:c.ans.includes(id))?"good":"bad");
+  const fewer=!neg&&!order&&c.taps.every(id=>c.ans.includes(id))&&c.taps.length<c.ans.length;
   const m=$("mMsg");m.dataset.keep="1";
   m.textContent=c.rv?"표시된 그림을 다시 눌러 보세요":neg?(c.clv===4?"'말고' 앞에 들은 그림은 누르지 않아요. 다시 들어 볼까요?":"'빼고' 앞에 들은 그림은 빼고 눌러요. 다시 들어 볼까요?")
-    :order?"그림은 맞았어요. 누르는 순서를 다시 들어 볼까요?":"다시 들어 볼까요? 🔊";
+    :order?"그림은 맞았어요. 누르는 순서를 다시 들어 볼까요?":fewer?"맞게 눌렀는데 더 눌러야 해요. 다시 들어 볼까요?":"다시 들어 볼까요? 🔊";
   renderCmd();
   setTimeout(()=>{busy=false;c.taps=[];c.mark=null;delete m.dataset.keep;renderCmd();if(!c.rv)speak();},1700);
 }
@@ -2317,6 +2328,7 @@ function bindCmd(){
   $("mBack").onclick=()=>{cmdTok++;cmdBusy=false;HV.stop();show("home");};
   $("mSpeak").onclick=()=>{const c=state.cur;if(!c||cmdBusy||busy)return;c.rp=(c.rp||0)+1;c.taps=[];c.mark=null;save();speak();};
   $("mUndo").onclick=()=>{const c=state.cur;if(!c||!c.taps||busy)return;c.taps.pop();renderCmd();};
+  $("mDone").onclick=()=>{const c=state.cur;if(!c||busy||cmdBusy||!(c.taps||[]).length)return;checkCmd();};
   $("mShow").onclick=()=>{const c=state.cur;if(!c)return;c.rv=true;c.taps=[];c.mark=null;save();renderCmd();};
   $("mSkip").onclick=()=>{if(busy||!state.cur)return;record(0);advance("cmd");};
   $("mPeek").onclick=()=>{const g=$("mGtext");g.hidden=false;clearTimeout(g._t);g._t=setTimeout(()=>g.hidden=true,5000);};
@@ -2443,6 +2455,7 @@ function flushMiss(c){if(c&&c.miss!=null){learn(c.k,c.t,c.miss);c.miss=null;}}
 async function doListen(){
   if(busy||!state.cur||!SPEECH)return;
   if(listening){try{await SPEECH.stop();}catch(e){}return;}
+  HV.stop();try{if(vAudio)vAudio.pause();}catch(e){}try{TTS?TTS.stop():speechSynthesis.cancel();}catch(e){}
   speechEnd=0;listening=true;$("rHeard").className="rheard";$("rHeard").textContent="다 읽으면 잠깐 기다리면 돼요";$("rbox").className="rbox";renderRead();
   let r;try{r=await SPEECH.listen({silenceMs:3000});}catch(e){r={matches:[],error:-1};}
   listening=false;$("micIc").style.transform="";
