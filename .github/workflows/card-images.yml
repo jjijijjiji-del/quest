@@ -1,0 +1,25 @@
+name: 그림 카드 만들기
+
+# scripts/img/list.txt 의 그림을 무료 이미지 생성으로 만들어 img-drafts 가지에 올림 (검토 후 앱에 넣음)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - name: 그림 만들기
+        run: python3 scripts/img/gen.py scripts/img/list.txt img_out
+      - name: img-drafts 가지에 올리기
+        run: |
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          mkdir -p /tmp/keep && cp -r img_out/. /tmp/keep/
+          git fetch origin img-drafts || true
+          if git rev-parse -q --verify origin/img-drafts >/dev/null; then git checkout -B img-drafts origin/img-drafts; else git checkout --orphan img-drafts && git rm -rfq . ; fi
+          mkdir -p drafts && cp -r /tmp/keep/. drafts/
+          git add drafts && git commit -qm "그림 초안 ${{ github.run_number }}" && git push -q origin img-drafts
