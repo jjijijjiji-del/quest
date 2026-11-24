@@ -3,6 +3,10 @@ name: 그림 카드 만들기
 # scripts/img/list.txt 의 그림을 무료 이미지 생성으로 만들어 img-drafts 가지에 올림 (검토 후 앱에 넣음)
 on:
   workflow_dispatch:
+    inputs:
+      engine:
+        description: "local(SDXL-Turbo, 무료·계정 없음) 또는 web(pollinations)"
+        default: local
 
 permissions:
   contents: write
@@ -13,8 +17,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
-      - name: 그림 만들기
+      - name: 그림 만들기 (web)
+        if: inputs.engine == 'web'
         run: python3 scripts/img/gen.py scripts/img/list.txt img_out
+      - name: 그림 만들기 (local)
+        if: inputs.engine != 'web'
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q diffusers transformers accelerate safetensors
+          python3 scripts/img/gen_local.py scripts/img/list.txt img_out 2
       - name: img-drafts 가지에 올리기
         run: |
           git config user.name "github-actions"; git config user.email "actions@github.com"
