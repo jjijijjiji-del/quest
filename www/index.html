@@ -1808,6 +1808,7 @@ function startPlay(){
   if(c){c.ts=Date.now();if(isMath(c.k)){c.t0=Date.now();show("calc");return;}
     if(c.k==="seq"){c.taps=[];seqBusy=voiceMode()&&!guardian();show("seqv");setTimeout(speak,300);return;}
     if(c.k==="cmd"){c.taps=[];show("cmdv");setTimeout(speak,300);return;}
+    if(c.k==="sent")c.askShown=true;
     const rd=c.k==="read"||c.k==="rep";show(rd?"read":"play");if(c.k!=="read")setTimeout(speak,300);return;}
   newQ();
 }
@@ -1931,9 +1932,10 @@ function newQ(skipIntro){
     let q;for(let i=0;i<30;i++){q=HV.sent(lv);if(!q)break;q.id=q.items.map(x=>x.join(":")).join("|")+"?"+q.ask;if(!recent.includes(q.id))break;}
     if(!q){state.lastSkill=null;return newQ(true);}
     s.recent=recent.concat(q.id).slice(-60);
-    state.cur={k,id:q.id,hv:true,keys:q.keys,items:q.items,ask:q.ask,t:q.items[q.ask][1],lv,tries:0,rv:false,rp:0,ts:Date.now()};
+    // 무엇을 물을지 먼저 보여 주고 들려줌 — 다 듣고 나서 물으면 듣기보다 기억(물건 셋·가격 셋)을 시험하게 돼서
+    state.cur={k,id:q.id,hv:true,keys:q.keys,items:q.items,ask:q.ask,t:q.items[q.ask][1],lv,tries:0,rv:false,rp:0,ts:Date.now(),askShown:true};
     input="";save();$("msg").textContent="";$("answer").className="answer";$("gtext").hidden=true;
-    show("play");setTimeout(speak,250);return;
+    show("play");setTimeout(speak,1300);return;
   }
   if(isMath(k)){
     const [a,b]=pickMath(k,lv,state.cur&&state.cur.k===k?[state.cur.a,state.cur.b]:null);
@@ -1959,7 +1961,7 @@ function showIntro(k){
   $("placed").innerHTML=`<div class="card center intro">
     <div class="iic">${TICON[k]}</div>
     <h2>${state.today.count?"이번엔 ":""}${TNAME[k]}${state.today.count?(isMath(k)?"이에요":"예요"):"부터 해요"}</h2>
-    <div>${k==="rep"?"금액을 들려줘요. 숫자는 보이지 않아요.<br>🎤 버튼을 누르고 들은 그대로 따라 말하세요.":k==="dig"?"숫자 몇 개를 차례로 들려줘요.<br>들은 순서대로 숫자를 쓰세요.":k==="cmd"?"지시를 듣고 그대로 그림을 누르세요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="seq"?"단어 몇 개를 차례로 들려줘요.<br>다 들은 다음, 들은 순서대로 그림을 누르세요.":k==="sent"?"짧은 문장을 듣고, 물어보는 물건의 가격을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
+    <div>${k==="rep"?"금액을 들려줘요. 숫자는 보이지 않아요.<br>🎤 버튼을 누르고 들은 그대로 따라 말하세요.":k==="dig"?"숫자 몇 개를 차례로 들려줘요.<br>들은 순서대로 숫자를 쓰세요.":k==="cmd"?"지시를 듣고 그대로 그림을 누르세요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="seq"?"단어 몇 개를 차례로 들려줘요.<br>다 들은 다음, 들은 순서대로 그림을 누르세요.":k==="sent"?"무슨 물건 가격을 적을지 먼저 보여 줘요.<br>문장을 듣고 그 물건의 가격을 숫자로 써요.":k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
     ${test?`<div class="sub">먼저 실력 확인 ${TN(k)}문제로 시작 레벨을 정해요.</div>`:""}
     <button class="btn" type="button" id="introGo" style="width:100%">시작</button>
     <button class="link" type="button" id="introHome">처음 화면으로</button></div>`;
