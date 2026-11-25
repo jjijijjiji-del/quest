@@ -292,6 +292,11 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .rbox.ok{border-color:var(--good);background:var(--good-bg)}
 .rnum{font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap;letter-spacing:.01em}
 .rko{font-size:20px;font-weight:700;color:var(--gold)}
+.rnum.vq{white-space:normal;text-align:center;word-break:keep-all;font-size:34px!important;line-height:1.35;font-variant-numeric:normal}
+.vq .ctx{display:block;font-size:23px;font-weight:600;color:var(--muted)}
+.vq .blank{display:inline-block;min-width:2.4em;border-bottom:4px solid var(--ink);margin-left:6px;letter-spacing:.06em}
+.vq .blank.h{color:var(--gold);border-color:var(--gold)}
+.vq .blank.full{color:var(--good);border-color:var(--good)}
 .rheard{flex:none;min-height:3em;text-align:center;font-size:17px;color:var(--muted)}
 .rheard b{color:var(--ink)}
 .rheard.no{color:var(--bad)}
@@ -313,7 +318,7 @@ body{margin:0;-webkit-user-select:none;user-select:none}
 .sline{font-size:15px;line-height:1.5;text-align:center;color:var(--ink)}
 .sline .hl,.gtext .hl{background:color-mix(in srgb,var(--gold) 30%,transparent);border-radius:4px;padding:0 3px}
 #play .gbox .gtext{font-size:17px;font-weight:700;line-height:1.45;text-align:center}
-.ovnote{font-size:17px;color:var(--muted);text-align:center;max-width:260px}
+.ovnote{font-size:17px;color:var(--muted);text-align:center;max-width:280px;white-space:pre-line}
 
 /* ---- 덧셈·곱셈 ---- */
 :root{--c-add:#3f6fb5;--c-mul:#8a4fb0}
@@ -679,7 +684,7 @@ const MAXLV=14, TESTN=8;
 Object.defineProperty(window,"DAILY",{get:()=>planTotal()});
 const MINS=()=>state.settings.minutes||20;
 // 한 문제에 걸리는 시간(초) 처음 짐작값. 실제로 푼 시간으로 계속 고쳐 감
-const DEFSEC={listen:40,sent:45,rep:30,dig:25,seq:40,cmd:25,read:25,add:20,mul:15};
+const DEFSEC={listen:40,sent:45,rep:30,verb:30,dig:25,seq:40,cmd:25,read:25,add:20,mul:15};
 
 /* ---------- 숫자 → 한글 ---------- */
 const DN="영일이삼사오육칠팔구";
@@ -865,6 +870,35 @@ const SLV=[null,
   {nm:"상품 둘 · 뒤에 나온 것 묻기",ex:"커피 4,000원, 빵 2,000원 → 빵은?"},
   {nm:"상품 둘 · 아무거나 묻기",ex:"커피 4,000원, 빵 2,000원 → 커피는?"},
   {nm:"상품 셋 · 하나 묻기",ex:"우유, 빵, 커피 중 → 빵은?"}];
+/* 동사 말하기: 상황 문장의 빈칸 동사를 말로. 같은 물건도 상황마다 답이 다름 (우산을 써요/접어요/털어요/챙겨요)
+   [레벨, 문제, 목표 동사, 같이 맞는 말(쉼표)] — 레벨 n이면 n 이하 문제에서 냄 */
+const VLV=[null,
+  {nm:"옷·먹기·씻기·켜고 끄기",ex:"나가기 전에 신발을 → 신어요"},
+  {nm:"+ 이동·전화·몸·날씨",ex:"다 와서 버스에서 → 내려요"},
+  {nm:"+ 사람 사이·요리·건강·돈",ex:"시장에서 비싸서 값을 → 깎아요"}];
+const VERBQ=[[1,"나가기 전에 신발을","신어요","닦아요,찾아요,골라요,갈아 신어요"],[1,"집에 들어와서 신발을","벗어요","정리해요,닦아요,털어요,넣어요"],[1,"더러워진 운동화를","빨아요","닦아요,씻어요,세탁해요,버려요,털어요"],[1,"발이 시려서 양말을","신어요",""],[1,"추워서 옷을","입어요","껴입어요,더 입어요,챙겨요,꺼내요,갈아입어요"],[1,"샤워하려고 옷을","벗어요",""],[1,"옷걸이에 옷을","걸어요",""],[1,"바지가 길어서 바지를","줄여요","걷어요,접어요,수선해요,잘라요"],[1,"햇빛이 강해서 모자를","써요","챙겨요,눌러써요"],[1,"건물에 들어와서 모자를","벗어요",""],[1,"글씨가 안 보여서 안경을","써요","껴요,찾아요,닦아요"],[1,"안경이 더러워서 안경을","닦아요","씻어요,벗어요"],[1,"손이 시려서 장갑을","껴요","끼어요,챙겨요"],[1,"설거지하려고 고무장갑을","껴요","끼어요,써요"],[1,"병원에 가서 마스크를","써요","껴요,해요"],[1,"출근하려고 넥타이를","매요","해요,골라요"],[1,"퇴근하고 넥타이를","풀어요","벗어요"],[1,"나가기 전에 손목에 시계를","차요","해요"],[1,"손 씻으려고 반지를","빼요",""],[1,"결혼식에서 반지를","껴요","끼워요,교환해요,끼어요,주고받아요"],[1,"추워서 목에 목도리를","둘러요","해요,매요,감아요"],[1,"차에 타서 안전벨트를","매요","해요"],[1,"차에서 내리기 전에 안전벨트를","풀어요","빼요"],[1,"출근할 때 가방을","메요","매요,들어요,챙겨요"],[1,"여행 가려고 가방을","싸요","챙겨요,꾸려요"],[1,"비가 와서 우산을","써요","펴요,들어요,챙겨요,가져가요,꺼내요"],[1,"비가 그쳐서 우산을","접어요","털어요,말려요"],[1,"들어가기 전에 젖은 우산을","털어요","접어요,꽂아요,넣어요"],[1,"비가 올 것 같아서 우산을","챙겨요","가져가요,사요,가지고 가요"],[1,"손님이 와서 문을","열어요","열어 줘요"],[1,"추워서 문을","닫아요",""],[1,"나갈 때 문을","잠가요","닫아요"],[1,"들어가기 전에 문을","두드려요","노크해요,열어요,밀어요,당겨요"],[1,"어두워서 불을","켜요",""],[1,"자기 전에 불을","꺼요",""],[1,"뉴스 보려고 티비를","켜요","틀어요"],[1,"시끄러워서 티비 소리를","줄여요","낮춰요,꺼요,작게 해요"],[1,"안 들려서 티비 소리를","키워요","높여요,올려요,크게 해요"],[1,"더워서 에어컨을","틀어요","켜요"],[1,"추워서 보일러를","틀어요","켜요,돌려요,올려요"],[1,"더워서 창문을","열어요",""],[1,"비가 들어와서 창문을","닫아요",""],[1,"빨래하려고 세탁기를","돌려요","켜요,틀어요,열어요"],[1,"손 씻으려고 물을","틀어요",""],[1,"다 씻고 물을","잠가요","꺼요,닦아요"],[1,"목이 말라서 물을","마셔요","먹어요,찾아요"],[1,"라면 끓이려고 냄비에 물을","받아요","넣어요,부어요,담아요,끓여요"],[1,"컵에 물을","따라요","부어요,담아요,받아요,채워요"],[1,"화분에 물을","줘요","뿌려요,부어요"],[1,"욕조에 물을","받아요","채워요,틀어요"],[1,"주전자에 물을","끓여요","받아요,담아요,부어요,데워요,넣어요"],[2,"친구한테 전화를","걸어요","해요"],[2,"전화가 와서 전화를","받아요","끊어요"],[2,"할 말을 다 해서 전화를","끊어요",""],[2,"친구한테 문자를","보내요","해요,써요,남겨요"],[2,"배터리가 없어서 휴대폰을","충전해요","꽂아요"],[2,"영화관에서 휴대폰을","꺼요","넣어요"],[2,"샤워할 때 머리를","감아요","씻어요,헹궈요"],[2,"머리가 젖어서 머리를","말려요","닦아요,털어요"],[2,"머리가 헝클어져서 머리를","빗어요","묶어요,정리해요,만져요"],[2,"머리가 길어서 머리를","잘라요","깎아요,묶어요,다듬어요"],[2,"인사할 때 고개를","숙여요","끄덕여요"],[2,"아침에 일어나서 이불을","개요","정리해요,접어요,털어요,걷어요"],[2,"추워서 이불을","덮어요","꺼내요"],[2,"먼지가 많아서 이불을","털어요","빨아요"],[2,"자려고 바닥에 이불을","펴요","깔아요"],[1,"배고파서 밥을","먹어요","해요,시켜요,차려요"],[1,"저녁 하려고 밥을","해요","지어요,안쳐요"],[1,"그릇에 밥을","퍼요","담아요,덜어요"],[1,"밥이 식어서 밥을","데워요",""],[1,"배불러서 밥을","남겨요",""],[1,"냄비에 라면을","끓여요","넣어요"],[1,"냄비에 계란을","삶아요","넣어요"],[1,"프라이팬에 계란을","부쳐요","구워요,깨요,익혀요,프라이해요,넣어요"],[1,"삶은 계란 껍질을","까요","벗겨요"],[1,"바나나 껍질을","까요","벗겨요,버려요"],[1,"칼로 사과를","깎아요","잘라요,썰어요"],[1,"칼로 연필을","깎아요",""],[1,"프라이팬에 고기를","구워요","볶아요,익혀요"],[1,"칼로 파를","썰어요","잘라요,다듬어요"],[1,"아침에 커피를","마셔요","먹어요,타요,내려요"],[1,"커피에 설탕을","넣어요","타요"],[1,"밥 먹고 약을","먹어요","챙겨 먹어요"],[1,"상처에 약을","발라요","뿌려요"],[1,"입이 심심해서 껌을","씹어요","먹어요"],[1,"저녁에 친구랑 술을","마셔요","먹어요"],[1,"건강 때문에 담배를","끊어요","줄여요"],[1,"냄비에 국을","끓여요","데워요"],[1,"김장할 때 김치를","담가요","해요,담아요"],[1,"밥 먹기 전에 상을","차려요","펴요"],[1,"밥 다 먹고 상을","치워요","정리해요,닦아요"],[1,"밥 다 먹고 그릇을","씻어요","닦아요,치워요,설거지해요"],[1,"밥 먹기 전에 손을","씻어요","닦아요"],[1,"아침에 일어나서 얼굴을","씻어요","닦아요"],[1,"씻고 나서 수건으로 얼굴을","닦아요",""],[1,"자기 전에 이를","닦아요",""],[1,"손톱이 길어서 손톱을","깎아요","잘라요"],[1,"더러워진 옷을","빨아요","세탁해요,벗어요,갈아입어요"],[1,"다 빤 빨래를","널어요","말려요,털어요,꺼내요"],[1,"다 마른 빨래를","개요","걷어요,정리해요,넣어요"],[1,"빗자루로 바닥을","쓸어요","청소해요"],[1,"물을 쏟아서 걸레로 바닥을","닦아요","청소해요"],[1,"방이 지저분해서 방을","치워요","청소해요,정리해요"],[1,"쓰레기통이 꽉 차서 쓰레기를","버려요","내놔요,내다 버려요,비워요"],[3,"우유를 냉장고에","넣어요","둬요"],[3,"우유를 냉장고에서","꺼내요",""],[3,"벽에 달력을","걸어요","붙여요,달아요"],[3,"상자에 테이프를","붙여요","감아요"],[3,"접시에 과일을","담아요","놓아요,올려요"],[3,"젓가락으로 반찬을","집어요","먹어요,덜어요"],[3,"가위로 종이를","잘라요","오려요"],[3,"망치로 못을","박아요",""],[3,"자로 길이를","재요",""],[3,"마당에 나무를","심어요",""],[3,"친구 생일에 선물을","줘요","사요,해요,보내요,골라요,드려요"],[3,"내 생일에 친구한테 선물을","받아요",""],[3,"가게에서 카드로","계산해요","결제해요,해요"],[3,"은행에서 돈을","찾아요","뽑아요,빼요,넣어요,보내요,바꿔요"],[3,"가게에서 물건값을","내요","계산해요"],[3,"가게에서 거스름돈을","받아요",""],[3,"병원에 예약을","해요","잡아요"],[3,"친구랑 만날 약속을","해요","잡아요,정해요"],[3,"한번 한 약속은 꼭","지켜요",""],[3,"집에서 병원까지 시간이 많이","걸려요","들어요"],[3,"차가 많아서 길이","막혀요","밀려요"],[2,"회사에 가려고 버스를","타요","기다려요"],[2,"다 와서 버스에서","내려요",""],[2,"버스를 놓쳐서 다음 버스를","기다려요","타요"],[2,"늦어서 택시를","타요","불러요,잡아요"],[2,"주차장에 차를","세워요","대요,주차해요"],[2,"길을 몰라서 사람한테 길을","물어봐요","물어요"],[2,"차 조심하면서 길을","건너요",""],[2,"기차 표를","사요","끊어요,예매해요"],[2,"공원에서 자전거를","타요","빌려요"],[3,"친구한테 편지를","써요","보내요"],[3,"도서관에서 책을","읽어요","빌려요,봐요,찾아요"],[3,"노래방에서 노래를","불러요","해요"],[3,"자기 전에 일기를","써요",""],[3,"카메라로 사진을","찍어요",""],[3,"멀리 있는 친구 이름을","불러요",""],[3,"피아노를","쳐요","배워요,연주해요"],[3,"기타를","쳐요","배워요,연주해요"],[3,"공연이 끝나서 박수를","쳐요",""],[3,"연필로 그림을","그려요",""],[3,"입으로 풍선을","불어요",""],[2,"발로 공을","차요",""],[2,"날아오는 공을","잡아요","받아요,피해요"],[2,"주사위를","던져요","굴려요"],[2,"등산하려고 산에","올라가요","가요,올라요"],[2,"다리가 아파서 의자에","앉아요",""],[2,"피곤해서 침대에","누워요",""],[2,"아침에 침대에서","일어나요","나와요"],[2,"가게 앞에서 줄을","서요",""],[2,"졸려서 눈을","감아요","비벼요"],[2,"아침에 일어나서 눈을","떠요","비벼요"],[2,"병원에서 '아~' 하고 입을","벌려요","열어요"],[2,"맞다고 고개를","끄덕여요",""],[2,"아니라고 고개를","저어요","흔들어요,가로저어요"],[2,"택시 잡으려고 손을","들어요","흔들어요"],[2,"크게 숨을","쉬어요","들이마셔요,내쉬어요"],[2,"넘어져서 무릎을","다쳐요","까요"],[2,"감기 때문에 열이","나요","있어요,올라요"],[2,"감기 때문에 콧물이","나요","흘러요"],[2,"더워서 땀이","나요","흘러요"],[2,"밥을 못 먹어서 배가","고파요",""],[2,"모기가 팔을","물어요",""],[2,"창밖에 비가","와요","내려요"],[2,"겨울이라 눈이","와요","내려요,쌓여요"],[2,"창밖에 바람이","불어요",""],[2,"아침에 해가","떠요","나요"],[2,"저녁에 해가","져요","넘어가요"],[2,"밤에 달이","떠요",""],[2,"봄이 돼서 꽃이","피어요","펴요"],[2,"더워서 얼음이","녹아요",""],[2,"냄비에서 물이","끓어요",""],[2,"비가 오면서 천둥이","쳐요",""],[2,"비를 맞아서 옷이","젖어요",""],[2,"낯선 사람을 보고 강아지가","짖어요",""],[2,"아침에 닭이","울어요",""],[2,"하늘에서 새가","날아요","날아가요"],[2,"연못에서 오리가","헤엄쳐요","수영해요,놀아요"],[2,"아침 8시에 회사에","가요","출근해요,나가요"],[2,"일이 끝나고 집에","와요","가요,들어와요,들어가요,돌아와요,돌아가요"],[2,"문을 열고 방에","들어가요","들어와요"],[2,"산책하려고 밖에","나가요","나와요"],[2,"저녁 먹고 공원을 천천히","걸어요","산책해요,돌아요"],[2,"늦어서 버스 정류장까지","뛰어요","달려요,뛰어가요"],[2,"1층으로 계단을","내려가요","내려와요"],[2,"사거리에서 왼쪽으로","돌아요","가요,꺾어요"],[2,"빨간불이라 차가","멈춰요","서요"],[2,"여행 끝나고 집으로","돌아와요","와요,가요,돌아가요"],[2,"운전하려고 차에 시동을","걸어요","켜요"],[2,"주말에 극장에서 영화를","봐요",""],[2,"이어폰으로 음악을","들어요",""],[2,"나가기 전에 거울을","봐요",""],[2,"밖에서 큰 소리가","나요","들려요"],[2,"부엌에서 맛있는 냄새가","나요",""],[3,"아침에 만나서 '안녕하세요' 하고","인사해요",""],[3,"선생님 질문에","대답해요",""],[3,"잘못해서 친구한테","사과해요",""],[3,"친구 생일을","축하해요",""],[3,"짐이 무거워서 아들한테","부탁해요",""],[3,"친구를 집에","초대해요","불러요"],[3,"카페에서 친구를","만나요","기다려요"],[3,"늦게까지 자는 아이를","깨워요",""],[3,"설거지하는 엄마를","도와줘요","도와드려요"],[3,"우는 아기를","안아요","달래요"],[3,"길 건널 때 아이 손을","잡아요",""],[3,"귀여운 강아지를","쓰다듬어요","만져요"],[3,"화가 나서 친구한테","화내요","소리쳐요,소리 질러요"],[3,"재미있는 이야기를 듣고","웃어요",""],[3,"슬픈 영화를 보고","울어요",""],[3,"안 쓰는 물건을 중고로","팔아요",""],[3,"옷이 작아서 큰 걸로","바꿔요","교환해요"],[3,"시장에서 비싸서 값을","깎아요","흥정해요"],[3,"집에서 치킨을","시켜요","주문해요,배달시켜요,먹어요"],[3,"가게에서 마음에 드는 옷을","골라요","사요"],[3,"여행 가려고 돈을","모아요","저금해요,아껴요"],[3,"친구한테 빌린 돈을","갚아요","돌려줘요,줘요"],[3,"도서관에서 빌린 책을","반납해요","돌려줘요,갖다줘요"],[3,"펜이 없어서 친구한테 펜을","빌려요",""],[3,"친구가 펜이 없어서 펜을","빌려줘요","줘요"],[3,"밥 하기 전에 쌀을","씻어요","불려요,안쳐요"],[3,"찜기에 감자를","쪄요","삶아요"],[3,"기름에 돈가스를","튀겨요",""],[3,"프라이팬에 김치를","볶아요",""],[3,"냄비에 소금을 넣고 숟가락으로","저어요","섞어요"],[3,"양념을 넣고 골고루","섞어요","비벼요,버무려요"],[3,"김 위에 밥을 올리고 김밥을","말아요","싸요"],[3,"상추에 고기를","싸요","싸 먹어요"],[3,"만두를 간장에","찍어요","찍어 먹어요"],[3,"국이 싱거워서 소금을","넣어요","쳐요,뿌려요"],[3,"뜨거운 국을","식혀요","불어요"],[3,"남은 고기를 냉동실에 넣어서","얼려요","보관해요"],[3,"요리하려고 냉동 고기를","녹여요","해동해요"],[3,"간이 맞는지 국 맛을","봐요",""],[3,"커피믹스로 커피를","타요",""],[3,"병원에서 팔에 주사를","맞아요",""],[3,"병원에서 혈압을","재요",""],[3,"허리가 아파서 허리에 파스를","붙여요",""],[3,"칼질하다가 손을","베어요","베여요,다쳐요"],[3,"뜨거운 냄비에 손을","데어요","다쳐요"],[3,"길이 미끄러워서","넘어져요","미끄러져요"],[3,"문에 머리를","부딪쳐요","부딪혀요,박아요"],[3,"모기에 물려서 팔을","긁어요",""],[3,"다리가 아파서 다리를","주물러요","만져요,마사지해요"],[3,"약을 물이랑 같이","삼켜요","먹어요,마셔요"],[3,"목에 뭐가 걸려서","기침해요",""],[3,"피곤해서 일찍","자요","쉬어요,누워요"],[3,"일하다가 피곤해서 잠깐","쉬어요","자요,누워요"],[3,"아침에 알람 소리에 잠이","깨요",""],[3,"수업 시간에 졸려서 꾸벅꾸벅","졸아요",""],[3,"건강을 위해서 매일","운동해요","걸어요,산책해요"],[3,"우산이 없어서 비를","맞아요",""],[3,"전구가 나가서 전구를","갈아요","바꿔요,교체해요"],[3,"고장 난 의자를","고쳐요","수리해요,버려요"],[3,"엘리베이터 버튼을","눌러요",""],[3,"충전기를 콘센트에","꽂아요",""],[3,"다 쓴 충전기를 콘센트에서","뽑아요","빼요"],[3,"셔츠가 구겨져서 다리미로","다려요","펴요"],[3,"떨어진 단추를","달아요","꿰매요"],[3,"바닥에 떨어진 휴지를","주워요","버려요"],[3,"무거운 상자를 다른 방으로","옮겨요","날라요"],[3,"창고에 상자를 차곡차곡","쌓아요",""],[3,"벽에 붙은 스티커를","떼요",""],[3,"가방이 열려 있어서 지갑을","잃어버려요","흘려요,떨어뜨려요"],[3,"친구 생일을 깜빡하고","잊어버려요","까먹어요,잊어요"],[3,"잊어버리지 않게 수첩에","적어요","써요,메모해요"],[3,"서류에 이름을","써요","적어요"],[3,"서류에 이름을 쓰고 도장을","찍어요",""],[2,"친구랑 바둑을","둬요",""],[2,"명절에 가족이랑 화투를","쳐요",""],[2,"휴대폰으로 게임을","해요",""],[2,"실수를 많이 해서 경기에서","져요",""]];
+const VCHO="ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+const esc=t=>String(t).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+// 힌트 단계: 빈칸 → 첫소리(ㅅ□요) → 첫 글자(신□요) → 정답. 두 글자 말(써요)은 첫소리 다음 바로 정답
+function vSteps(a){const L=[...a],n=L.length,last=L[n-1],mid="□".repeat(Math.max(0,n-2)),c0=VCHO[Math.floor((L[0].charCodeAt(0)-0xAC00)/588)]||L[0];
+  const s=["",c0+mid+(n>1?last:"")];if(n>=3)s.push(L[0]+mid+last);s.push(a);return s;}
+// 소리가 같은 모음은 같은 걸로 (ㅐ=ㅔ, ㅒ=ㅖ, ㅙ=ㅚ=ㅞ): 음성 인식이 '매요'를 '메요'로 적어도 맞게
+const vN=t=>[...t].map(ch=>{const x=ch.charCodeAt(0)-0xAC00;if(x<0||x>=11172)return ch;let j=Math.floor(x%588/28);j=j===1?5:j===3?7:j===10||j===15?11:j;return String.fromCharCode(0xAC00+Math.floor(x/588)*588+j*28+x%28);}).join("");
+const vSs=c=>{const x=c.charCodeAt(c.length-1)-0xAC00;return x>=0&&x<11172&&x%28===0?c.slice(0,-1)+String.fromCharCode(c.charCodeAt(c.length-1)+20):null;};
+/* 들린 말(후보 여러 개) 안에 그 동사가 있는지 — 낱말 앞에서만 찾음 (비싸'네요'가 '내요'로 잡히지 않게)
+   신어요·신어·신어서·신었어요… 끝이 달라도 맞게 */
+function vSays(cands,v){
+  const core=vN(v.replace(/\s/g,"").replace(/요$/,"")),past=vSs(core);
+  return cands.some(m=>{const T=vN(m).replace(/[^가-힣\s]/g," ").split(/\s+/).filter(Boolean),U=T.concat(T.slice(1).map((t,i)=>T[i]+t));
+    return U.some(u=>(u.startsWith(core)&&/^(요|서|야|도|줘|놔|주|봐|버|볼|드|라|$)/.test(u.slice(core.length)))||(past&&u.startsWith(past)&&/^(어|다|습|$)/.test(u.slice(past.length))));});
+}
+const vAll=it=>[it[2]].concat(it[3]?it[3].split(","):[]);
+// 자주 헷갈리는 말을 했을 때 짧은 설명
+const VNOTE={"입어요":"입어요는 옷(바지·티셔츠)에 써요.","신어요":"신어요는 발에(신발·양말) 써요.","써요":"써요는 머리·얼굴에(모자·안경·마스크) 써요.",
+  "껴요":"껴요는 손·손가락에(장갑·반지) 써요.","차요":"차요는 손목에(시계) 써요.","매요":"매요는 묶을 때(넥타이·안전벨트) 써요.","둘러요":"둘러요는 목에 감을 때(목도리) 써요.",
+  "까요":"까요는 손으로 껍질을 벗길 때(바나나·귤) 써요.","깎아요":"깎아요는 칼로 얇게 벗길 때(사과·연필) 써요.",
+  "켜요":"켜요는 불이 들어오게 할 때 써요.","꺼요":"꺼요는 불을 없앨 때 써요.","타요":"타요는 안으로 들어갈 때 써요.","내려요":"내려요는 밖으로 나올 때 써요.",
+  "넣어요":"넣어요는 안으로 둘 때 써요.","꺼내요":"꺼내요는 밖으로 뺄 때 써요.","빌려요":"빌려요는 내가 받을 때, 빌려줘요는 내가 줄 때 써요.","빌려줘요":"빌려요는 내가 받을 때, 빌려줘요는 내가 줄 때 써요."};
 const SQLV=[null,
   {n:2,mode:"far",nm:"2개 · 서로 다른 종류",ex:"사과 → 자동차"},
   {n:3,mode:"far",nm:"3개 · 서로 다른 종류",ex:"사과 → 자동차 → 우산"},
@@ -888,8 +922,8 @@ const CLV=[null,
   {nm:"말고 (하나만)",ex:"사과 말고 포도를 누르세요"},
   {nm:"보다 먼저 (순서 반대)",ex:"사과보다 포도를 먼저 누르세요"},
   {nm:"빼고 다",ex:"사과 빼고 다 누르세요"}];
-const MAXOF=k=>isMath(k)?8:k==="sent"?4:k==="seq"||k==="dig"||k==="cmd"?6:k==="read"?16:MAXLV;
-const TN=k=>isMath(k)||k==="sent"||k==="seq"||k==="dig"||k==="cmd"?6:TESTN;
+const MAXOF=k=>isMath(k)?8:k==="sent"?4:k==="verb"?3:k==="seq"||k==="dig"||k==="cmd"?6:k==="read"?16:MAXLV;
+const TN=k=>isMath(k)||k==="sent"||k==="verb"||k==="seq"||k==="dig"||k==="cmd"?6:TESTN;
 const OPS={add:"+",mul:"×"};
 const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 const ansOf=(k,a,b)=>k==="add"?a+b:a*b;
@@ -979,9 +1013,9 @@ function gen(lv,prev){
    실력(레벨·약점)은 듣고 쓰기 / 보고 읽기 따로, 하루 문제는 하나로 이어서 */
 const KEY="lwm2";
 const dkey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-const TNAME={listen:"듣고 쓰기",sent:"문장 듣기",rep:"따라 말하기",dig:"숫자 듣기",seq:"순서 기억",cmd:"지시 따르기",read:"보고 읽기",add:"덧셈",mul:"곱셈"};
-const TICON={listen:"👂",sent:"🛒",rep:"🗣️",dig:"🔢",seq:"🧩",cmd:"👉",read:"👀",add:"➕",mul:"✖️"};
-const ALLK=["listen","sent","rep","dig","seq","cmd","read","add","mul"];
+const TNAME={listen:"듣고 쓰기",sent:"문장 듣기",rep:"따라 말하기",verb:"동사 말하기",dig:"숫자 듣기",seq:"순서 기억",cmd:"지시 따르기",read:"보고 읽기",add:"덧셈",mul:"곱셈"};
+const TICON={listen:"👂",sent:"🛒",rep:"🗣️",verb:"💬",dig:"🔢",seq:"🧩",cmd:"👉",read:"👀",add:"➕",mul:"✖️"};
+const ALLK=["listen","sent","rep","verb","dig","seq","cmd","read","add","mul"];
 const freshSkill=()=>({level:null,firstLevel:null,placement:null,weak:{},pair:{},seen:{},win:[],since:0,lastDown:null});
 const freshTk=()=>({n:0,ok:0,part:0,rv:0,lv0:null});
 function fresh(){return{v:3,updatedAt:0,skills:Object.fromEntries(ALLK.map(k=>[k,freshSkill()])),cur:null,today:null,days:{},lastSkill:null,
@@ -1125,7 +1159,7 @@ function sayRaw(text,rate){
     u.lang="ko-KR";u.rate=rate;if(koVoice)u.voice=koVoice;speechSynthesis.speak(u);}catch(e){}
 }
 function speak(){
-  if(guardian()||!state.cur)return;
+  if(guardian()||!state.cur||state.cur.k==="verb")return;
   // 순서 기억·숫자 듣기는 다시 들어도 같은 빠르기 (못 들어서가 아니라 못 붙잡아 둬서 틀림 — 느리게 하면 기억할 시간만 길어짐)
   if(state.cur.k==="seq"){const c=state.cur;if(voiceMode())playSeq(c,false);return;}
   {const c=state.cur,slow=c.rp>=2||c.tries>=2;
@@ -1699,10 +1733,10 @@ function streak(){
 }
 const readOK=()=>!!SPEECH;
 // 항목을 쓸 수 있는지: 음성 인식(보고 읽기·따라 말하기), 보호자 녹음(문장 듣기·숫자 듣기·지시 따르기), 그림 카드(순서 기억·지시 따르기)
-const AVAIL={read:readOK,rep:readOK,sent:()=>HV.sentOK(),dig:()=>HV.digOK(),seq:()=>seqOK(),cmd:()=>!!CARDS&&HV.cmdOK()};
+const AVAIL={read:readOK,rep:readOK,verb:readOK,sent:()=>HV.sentOK(),dig:()=>HV.digOK(),seq:()=>seqOK(),cmd:()=>!!CARDS&&HV.cmdOK()};
 const avail=k=>!AVAIL[k]||AVAIL[k]();
 const SKILLS=()=>{const P=state.settings.parts||{};const ks=ALLK.filter(k=>P[k]!==false&&avail(k));return ks.length?ks:["listen"];};
-const WEIGHT={listen:3,sent:2,rep:2,dig:1.5,seq:2,cmd:2,read:1.5,add:1.5,mul:1.5};
+const WEIGHT={listen:3,sent:2,rep:2,verb:2,dig:1.5,seq:2,cmd:2,read:1.5,add:1.5,mul:1.5};
 // 하루 문제를 고른 항목들에 고르게 나눔 (앞 항목부터 하나씩 더)
 // 하루 문제를 비중대로 나눔 (듣고 쓰기 3 : 문장 듣기 2 : 나머지 1.5)
 /* 실력에 따라 문제 수 조절
@@ -1758,12 +1792,13 @@ function nextSkill(){
 }
 
 /* ---------- 홈 ---------- */
-function lvName(k,lv){return isMath(k)?MLV[k][lv].nm:k==="sent"?SLV[lv].nm:k==="seq"?SQLV[lv].nm:k==="dig"?DLV[lv].nm:k==="cmd"?CLV[lv].nm:LV[lv].nm;}
+function lvName(k,lv){return isMath(k)?MLV[k][lv].nm:k==="sent"?SLV[lv].nm:k==="seq"?SQLV[lv].nm:k==="dig"?DLV[lv].nm:k==="cmd"?CLV[lv].nm:k==="verb"?VLV[lv].nm:LV[lv].nm;}
 function lvEx(k,lv){
   if(k==="dig")return DLV[lv].ex;
   if(k==="cmd")return CLV[lv].ex;
   if(k==="seq")return SQLV[lv].ex;
   if(k==="sent")return SLV[lv].ex;
+  if(k==="verb")return VLV[lv].ex;
   if(isMath(k)){const [a,b]=MLV[k][lv].ex;return `${mathText(k,a,b)} = ${Number(ansOf(k,a,b)).toLocaleString("ko-KR")}`;}
   const e=LV[lv].ex,n=Number(e).toLocaleString("ko-KR")+"원";
   return k==="read"?`${n} → "${toKo(e)} 원"`:k==="rep"?`"${toKo(e)} 원" → 따라 말하기`:`${toKo(e)} 원 → ${n}`;
@@ -1809,7 +1844,7 @@ function startPlay(){
     if(c.k==="seq"){c.taps=[];seqBusy=voiceMode()&&!guardian();show("seqv");setTimeout(speak,300);return;}
     if(c.k==="cmd"){c.taps=[];show("cmdv");setTimeout(speak,300);return;}
     if(c.k==="sent")c.askShown=true;
-    const rd=c.k==="read"||c.k==="rep";show(rd?"read":"play");if(c.k!=="read")setTimeout(speak,300);return;}
+    const rd=c.k==="read"||c.k==="rep"||c.k==="verb";show(rd?"read":"play");if(rd)renderRead();if(c.k!=="read"&&c.k!=="verb")setTimeout(speak,300);return;}
   newQ();
 }
 
@@ -1912,6 +1947,17 @@ function newQ(skipIntro){
     state.cur={k,items:q.items,board:q.board,t:0,lv,tries:0,rv:false,rp:0,taps:[],ts:Date.now()};
     seqBusy=voiceMode()&&!guardian();save();show("seqv");setTimeout(speak,400);return;
   }
+  if(k==="verb"){
+    // 동사 말하기: 지금 레벨 이하 문제에서 고르되 지금 레벨 문제를 60%. 정답을 보고서야 말한 문제는 30% 확률로 다시 냄
+    const recent=s.recent||(s.recent=[]),miss=s.vmiss||(s.vmiss=[]);
+    let vi=-1;
+    if(!P&&miss.length&&Math.random()<.3){const m=miss.filter(i=>!recent.slice(-8).includes(i)&&VERBQ[i]&&VERBQ[i][0]<=lv);if(m.length)vi=m[Math.floor(Math.random()*m.length)];}
+    if(vi<0){const cur=Math.random()<.6||lv===1,pool=[];VERBQ.forEach((it,i)=>{if(cur?it[0]===lv:it[0]<lv)pool.push(i);});
+      const fresh=pool.filter(i=>!recent.includes(i)),use=fresh.length?fresh:pool;vi=use[Math.floor(Math.random()*use.length)];}
+    s.recent=recent.concat(vi).slice(-80);
+    state.cur={k,vi,t:0,lv,tries:0,rv:false,rp:0,ts:Date.now()};
+    save();$("rHeard").className="rheard";$("rHeard").textContent="";$("rbox").className="rbox";show("read");renderRead();return;
+  }
   if(k==="dig"){
     // 숫자 듣기: 같은 숫자가 바로 이어지지 않게
     const L=DLV[lv];let str;
@@ -1954,14 +2000,14 @@ function newQ(skipIntro){
   show("play");setTimeout(speak,250);
 }
 // 듣고 쓰기 ↔ 보고 읽기가 바뀔 때 안내
-const startLv=k=>k==="mul"||k==="sent"||k==="cmd"||k==="dig"?1:k==="add"||k==="seq"?2:k==="rep"?3:4;
+const startLv=k=>k==="mul"||k==="sent"||k==="verb"||k==="cmd"||k==="dig"?1:k==="add"||k==="seq"?2:k==="rep"?3:4;
 function showIntro(k){
   const s=SK(k),test=s.level==null||(s.placement&&!s.placement.hist.length);
   const R=k==="read";
   $("placed").innerHTML=`<div class="card center intro">
     <div class="iic">${TICON[k]}</div>
     <h2>${state.today.count?"이번엔 ":""}${TNAME[k]}${state.today.count?(isMath(k)?"이에요":"예요"):"부터 해요"}</h2>
-    <div>${k==="rep"?"금액을 들려줘요. 숫자는 보이지 않아요.<br>🎤 버튼을 누르고 들은 그대로 따라 말하세요.":k==="dig"?"숫자 몇 개를 차례로 들려줘요.<br>들은 순서대로 숫자를 쓰세요.":k==="cmd"?"지시를 듣고 그대로 그림을 누르세요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="seq"?"단어 몇 개를 차례로 들려줘요.<br>다 들은 다음, 들은 순서대로 그림을 누르세요.":k==="sent"?"무슨 물건 가격을 적을지 먼저 보여 줘요.<br>문장을 듣고 그 물건의 가격을 숫자로 써요.":k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
+    <div>${k==="verb"?"문장을 보고 빈칸에 들어갈 말을 🎤 버튼을 누르고 말해요.<br>틀리면 첫소리부터 힌트가 하나씩 나와요.":k==="rep"?"금액을 들려줘요. 숫자는 보이지 않아요.<br>🎤 버튼을 누르고 들은 그대로 따라 말하세요.":k==="dig"?"숫자 몇 개를 차례로 들려줘요.<br>들은 순서대로 숫자를 쓰세요.":k==="cmd"?"지시를 듣고 그대로 그림을 누르세요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요.":k==="seq"?"단어 몇 개를 차례로 들려줘요.<br>다 들은 다음, 들은 순서대로 그림을 누르세요.":k==="sent"?"무슨 물건 가격을 적을지 먼저 보여 줘요.<br>문장을 듣고 그 물건의 가격을 숫자로 써요.":k==="add"?"덧셈 문제의 답을 숫자로 써요.<br>천천히 생각해도 괜찮아요.":k==="mul"?"곱셈 문제의 답을 숫자로 써요.<br>구구단을 떠올려 보세요.":R?"화면에 나온 금액을 소리 내어 읽어요.<br>🎤 버튼을 누르고 읽으면 돼요.":"들려주는 금액을 숫자로 써요.<br>잘 안 들리면 🔊 버튼을 다시 누르세요."}</div>
     ${test?`<div class="sub">먼저 실력 확인 ${TN(k)}문제로 시작 레벨을 정해요.</div>`:""}
     <button class="btn" type="button" id="introGo" style="width:100%">시작</button>
     <button class="link" type="button" id="introHome">처음 화면으로</button></div>`;
@@ -2098,14 +2144,15 @@ function onCorrect(){
   else if(first&&k==="seq")learnSeq(c,c.items);
   else if(first&&k==="dig")learnDig(c,null);
   else if(first&&k==="cmd")learnCmd(c,null);
-  else if(first&&!isMath(k)&&k!=="seq"&&k!=="cmd")learn(k,c.t,null);
+  else if(first&&!isMath(k)&&k!=="seq"&&k!=="cmd"&&k!=="verb")learn(k,c.t,null);
   const ch=record(scoreOf(c));
   chime();
   if(k==="seq"){seqTok++;seqBusy=false;}
   if(k==="cmd"){cmdTok++;cmdBusy=false;}
-  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":k==="rep"?"잘 따라 말했어요!":isMath(k)?"잘했어요!":k==="seq"||k==="cmd"?"잘 따라 했어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
-    (k==="read"||k==="rep")&&c.said?`들린 말: “${c.said}”`:"");
-  setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:(k==="read"||k==="rep"?1900:1400));
+  let vx="";if(k==="verb"){const it=VERBQ[c.vi],o=vAll(it).filter(v=>v!==c.hit);vx=(c.said?`들린 말: “${c.said}”`:"")+(o.length?`\n이렇게도 말해요: ${o.join(" · ")}`:"");}
+  overlay(c.rv?(k==="read"?"잘 따라 읽었어요!":k==="rep"||k==="verb"?"잘 따라 말했어요!":isMath(k)?"잘했어요!":k==="seq"||k==="cmd"?"잘 따라 했어요!":"잘 따라 썼어요!"):c.tries?"맞았어요!":"맞았어요! 👏",ch>0?`⭐ 레벨 업! ${SKILLS().length>1?TNAME[k]+" ":""}레벨 ${SK(k).level}`:"",
+    k==="verb"?vx:(k==="read"||k==="rep")&&c.said?`들린 말: “${c.said}”`:"");
+  setTimeout(()=>{hideOverlay();busy=false;advance(k);},ch>0?2200:k==="verb"?2800:(k==="read"||k==="rep"?1900:1400));
 }
 /* 레벨: 최근 10문제 점수 평균 0.85 이상 → 업, 0.5 이하 → 다운
    레벨이 바뀐 뒤 6문제는 판단하지 않고, 다운은 하루 한 번까지 */
@@ -2466,6 +2513,8 @@ function fitNum(){
 function renderRead(){
   const c=state.cur,[info,w]=progInfo(),R=!!(c&&c.k==="rep");
   $("rInfo").innerHTML=info;$("rBar").style.width=w+"%";
+  if(c&&c.k==="verb")return renderVerb(c);
+  $("rNum").classList.remove("vq");
   // 따라 말하기: 금액은 숨기고 들려줌. 두 번 틀려 '숫자 보기'를 누르면 보여 줌
   $("rSub").textContent=R?(c.rv?"숫자를 보면서 따라 말해 보세요":"들은 금액을 그대로 따라 말해 보세요"):"소리 내어 읽어 보세요";
   $("rListen").hidden=!R;
@@ -2479,12 +2528,42 @@ function renderRead(){
   $("mic").classList.toggle("on",listening);
   $("micTxt").textContent=listening?"듣고 있어요…":R?(c.tries>0?"다시 따라 말하기":"누르고 따라 말하기"):(c&&c.tries>0?"다시 읽기":"누르고 읽기");
 }
+// 동사 말하기 화면 (보고 읽기 화면을 같이 씀)
+function renderVerb(c){
+  const it=VERBQ[c.vi],st=vSteps(it[2]),k=Math.min(c.tries,st.length-1),m=it[1].match(/^(.*\s)?(\S+)$/),ctx=m[1]?m[1].trim():"",last=m[2];
+  $("rSub").textContent=c.rv?"보이는 대로 따라 말해 보세요":"빈칸에 들어갈 말을 해 보세요";
+  const n=$("rNum");n.classList.add("vq");n.style.fontSize="";
+  n.innerHTML=`${ctx?`<span class="ctx">${esc(ctx)}</span>`:""}${esc(last)}<span class="blank${k===st.length-1?" full":k?" h":""}">${k?esc(st[k]):"&nbsp;"}</span>`;
+  $("rKo").hidden=true;$("rListen").hidden=true;$("rHint").hidden=true;
+  $("rOk").hidden=!(c.tries>0&&!listening);$("rOk").textContent="맞게 말했어요 ⭕";
+  $("rSkip").hidden=!(c.rv&&c.tries>st.length-1&&!listening);
+  $("mic").classList.toggle("on",listening);
+  $("micTxt").textContent=listening?"듣고 있어요…":c.rv?"누르고 따라 말하기":c.tries?"다시 말하기":"누르고 말하기";
+}
+function verbHeard(c,ms){
+  const it=VERBQ[c.vi],all=vAll(it),st=vSteps(it[2]),h=$("rHeard"),said=ms[0];
+  const hit=all.find(v=>vSays(ms,v));
+  if(hit){c.said=said;c.hit=hit;learnVerb(c,true);
+    h.className="rheard";h.innerHTML=`들린 말: <b>${esc(said)}</b>`;$("rbox").className="rbox ok";renderRead();onCorrect();return;}
+  const wrong=Object.keys(VNOTE).find(v=>!all.includes(v)&&vSays(ms,v));
+  c.tries++;if(c.tries>=st.length-1)c.rv=true;
+  if(c.tries===1)learnVerb(c,false);
+  save();
+  h.className="rheard no";
+  h.innerHTML=`이렇게 들렸어요: <b>${esc(said)}</b><br>${wrong?esc(VNOTE[wrong])+"<br>":""}${c.tries>st.length-1?"보이는 대로 따라 말해 보세요. 어려우면 다음 문제로 넘어가도 돼요.":c.rv?"정답이에요. 보고 따라 말해 보세요.":"힌트를 보고 다시 말해 보세요."}`;
+  const b=$("rbox");b.className="rbox no";b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");
+  renderRead();
+}
+// 첫 시도에 틀린 문제는 다시 낼 목록에, 처음부터 맞힌 문제는 목록에서 뺌
+function learnVerb(c,ok){const s=SK("verb"),M=s.vmiss||(s.vmiss=[]),i=M.indexOf(c.vi);
+  if(ok&&c.tries===0&&!c.rv){if(i>=0)M.splice(i,1);}
+  else if(!ok&&i<0){M.push(c.vi);if(M.length>60)M.shift();}}
 function flushMiss(c){if(c&&c.miss!=null){learn(c.k,c.t,c.miss);c.miss=null;}}
 async function doListen(){
   if(busy||!state.cur||!SPEECH)return;
   if(listening){try{await SPEECH.stop();}catch(e){}return;}
   HV.stop();try{if(vAudio)vAudio.pause();}catch(e){}try{TTS?TTS.stop():speechSynthesis.cancel();}catch(e){}
-  speechEnd=0;listening=true;$("rHeard").className="rheard";$("rHeard").textContent="다 읽으면 잠깐 기다리면 돼요";$("rbox").className="rbox";renderRead();
+  speechEnd=0;listening=true;$("rHeard").className="rheard";$("rHeard").textContent=state.cur.k==="verb"?"다 말하면 잠깐 기다리면 돼요":"다 읽으면 잠깐 기다리면 돼요";$("rbox").className="rbox";renderRead();
   let r;try{r=await SPEECH.listen({silenceMs:3000});}catch(e){r={matches:[],error:-1};}
   listening=false;$("micIc").style.transform="";
   handleHeard(r.matches||[],r.error);
@@ -2501,6 +2580,7 @@ function handleHeard(ms,err){
       :"잘 안 들렸어요. 버튼을 누르고 다시 읽어 주세요.";
     renderRead();return;
   }
+  if(c.k==="verb")return verbHeard(c,ms);
   // 인식기가 가장 그럴듯하다고 고른 첫 번째 결과로만 판정 (숫자가 하나도 없을 때만 다음 후보를 봄)
   let said=ms[0];if(!NUMCH.test(said)){const alt=ms.find(m=>NUMCH.test(m));if(alt)said=alt;}
   if(c.cont){said=c.cont+" "+said;c.cont=null;}
@@ -2534,7 +2614,7 @@ function bindRead(){
   $("rHint").onclick=()=>{const c=state.cur;if(!c)return;flushMiss(c);c.rv=true;save();
     $("rHeard").className="rheard";$("rHeard").textContent=c.k==="rep"?"숫자를 보면서 들은 대로 따라 말해 보세요":guardian()?"보호자가 정답을 읽어 주세요. 그다음 따라 읽어 보세요.":"듣고 따라 읽어 보세요";renderRead();speak();};
   $("rListen").onclick=()=>{const c=state.cur;if(!c||listening)return;c.rp=(c.rp||0)+1;save();renderRead();speak();};
-  $("rSkip").onclick=()=>{const c=state.cur;if(!c||busy||listening)return;flushMiss(c);const k=c.k;record(0);advance(k);};
+  $("rSkip").onclick=()=>{const c=state.cur;if(!c||busy||listening)return;flushMiss(c);if(c.k==="verb")learnVerb(c,false);const k=c.k;record(0);advance(k);};
   if(SPEECH){
     SPEECH.addListener("state",d=>{if(listening&&d.state==="thinking")speechEnd=Date.now();});
     SPEECH.addListener("partial",d=>{if(listening&&d.text){$("rHeard").className="rheard";$("rHeard").textContent="… "+d.text;}});
