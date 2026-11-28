@@ -1,0 +1,33 @@
+name: 시간·숫자 문장 소리 만들기
+
+# scripts/tq/items.txt → 문제(tq.json) → Supertonic F1로 문장 소리 → tq-drafts 가지에 올림 (검토 후 앱에 넣음)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 설치
+        run: |
+          pip install -q supertonic soundfile numpy faster-whisper
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: 문제 만들기
+        run: python scripts/tq/build.py scripts/tq/items.txt scripts/tq/tq.json
+      - name: 소리 만들기
+        run: python scripts/tq/tts.py scripts/tq/tq.json tq_out
+      - name: tq-drafts 가지에 올리기
+        run: |
+          cp scripts/tq/tq.json tq_out/
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          mkdir -p /tmp/keep && cp -r tq_out/. /tmp/keep/
+          git checkout --orphan tq-drafts && git rm -rfq . && mkdir -p tq && cp -r /tmp/keep/. tq/
+          git add tq && git commit -qm "시간·숫자 문장 소리 ${{ github.run_number }}" && git push -qf origin tq-drafts
